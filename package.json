@@ -1,0 +1,8 @@
+{
+  "name": "gym-app",
+  "private": true,
+  "scripts": {
+    "build": "npm ci --prefix apps/api && npm run build --prefix apps/api",
+    "start": "npm run start:prod --prefix apps/api"
+  }
+}
