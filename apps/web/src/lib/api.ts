@@ -1,4 +1,13 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+function readApiBaseUrl(): string {
+  const runtimeUrl = window.__API_URL__;
+  if (typeof runtimeUrl === 'string' && runtimeUrl.length > 0) {
+    return runtimeUrl.replace(/\/$/, '');
+  }
+
+  return 'http://localhost:3000';
+}
+
+const API_BASE_URL = readApiBaseUrl();
 
 export interface HealthReport {
   status: 'ok' | 'degraded';

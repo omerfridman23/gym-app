@@ -19,7 +19,7 @@ export class HealthService {
     return {
       status: database.reachable ? 'ok' : 'degraded',
       service: 'gym-app-api',
-      message: 'here this came from api',
+      message: 'lets make plan so i can start build the project',
       timestamp: new Date().toISOString(),
       database,
     };

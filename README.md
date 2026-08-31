@@ -73,7 +73,14 @@ Two services from one repo:
 | Service | Root directory | Build | Start | Health check |
 | --- | --- | --- | --- | --- |
 | api | `apps/api` | `npm ci && npm run build` | `npm run start:prod` | `/api/health` |
-| web | `apps/web` | `npm ci && npm run build` | serve `dist/` | `/` |
+| web | `apps/web` | `npm ci && npm run build` | `serve -s dist` | `/` |
+
+**Each service must have its Root Directory set** (Settings → Source → Root Directory).
+There is no `package.json` at the repo root, so a service pointed at the repo root fails
+with `Railpack could not determine how to build the app`.
+
+Build and start commands live in `apps/api/railway.json` and `apps/web/railway.json`,
+which Railway reads relative to the service root directory.
 
 Required environment variables:
 

@@ -31,14 +31,11 @@ function App() {
     <main className="page">
       <section className="card">
         <header className="card__header">
-          <span className="card__eyebrow">המשפחה</span>
+          <span className="card__eyebrow">בדיקת תקינות</span>
           <h1 className="card__title" dir="ltr">
-            LET&apos;S DO MONEY
-          </h1>
-          <p className="card__shout" dir="ltr">
             Roy — bring the fucking clients.
-          </p>
-          <p className="card__subtitle">מאמנים אישיים · בדיקת תקינות</p>
+          </h1>
+          <p className="card__subtitle">מאמנים אישיים</p>
         </header>
 
         {state.phase === 'loading' && <p className="status">טוען נתונים…</p>}
