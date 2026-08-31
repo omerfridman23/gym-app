@@ -1,0 +1,13 @@
+.neon
+.env.local
+.env
+.env.*.local
+
+node_modules/
+dist/
+build/
+coverage/
+
+*.log
+*.tsbuildinfo
+.DS_Store
