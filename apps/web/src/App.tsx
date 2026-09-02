@@ -1,102 +1,36 @@
-import { useCallback, useEffect, useState } from 'react'
-import { fetchHealth, type HealthReport } from './lib/api'
+import { BrowserRouter, Route, Routes } from 'react-router'
+import { VerticalProvider } from '@/lib/vertical-context'
+import { AppLayout } from '@/layouts/app-layout'
+import TodayPage from '@/pages/today'
+import CalendarPage from '@/pages/calendar'
+import ClientsPage from '@/pages/clients'
+import ClientDetailPage from '@/pages/client-detail'
+import DebtsPage from '@/pages/debts'
+import ReportsPage from '@/pages/reports'
+import SettingsPage from '@/pages/settings'
+import OnboardingPage from '@/pages/onboarding'
+import ConfirmPage from '@/pages/confirm'
+import PayPage from '@/pages/pay'
 
-type LoadState =
-  | { phase: 'loading' }
-  | { phase: 'loaded'; report: HealthReport }
-  | { phase: 'error'; message: string }
-
-function App() {
-  const [state, setState] = useState<LoadState>({ phase: 'loading' })
-
-  const loadHealth = useCallback(async () => {
-    setState({ phase: 'loading' })
-
-    try {
-      const report = await fetchHealth()
-      setState({ phase: 'loaded', report })
-    } catch (error) {
-      setState({
-        phase: 'error',
-        message: error instanceof Error ? error.message : 'שגיאה לא מזוהה',
-      })
-    }
-  }, [])
-
-  useEffect(() => {
-    void loadHealth()
-  }, [loadHealth])
-
+export default function App() {
   return (
-    <main className="page">
-      <section className="card">
-        <header className="card__header">
-          <span className="card__eyebrow">בדיקת תקינות</span>
-          <h1 className="card__title" dir="ltr">
-            Roy — bring the fucking clients.
-          </h1>
-          <p className="card__subtitle">מאמנים אישיים</p>
-        </header>
-
-        {state.phase === 'loading' && <p className="status">טוען נתונים…</p>}
-
-        {state.phase === 'error' && (
-          <div className="status status--error">
-            <strong>אין חיבור לשרת</strong>
-            <p>{state.message}</p>
-          </div>
-        )}
-
-        {state.phase === 'loaded' && (
-          <>
-            <p className="message">{state.report.message}</p>
-
-            <dl className="metrics">
-              <div className="metric">
-                <dt>שרת API</dt>
-                <dd>
-                  <span
-                    className={`badge ${
-                      state.report.status === 'ok' ? 'badge--ok' : 'badge--warn'
-                    }`}
-                  >
-                    {state.report.status === 'ok' ? 'תקין' : 'מוגבל'}
-                  </span>
-                </dd>
-              </div>
-
-              <div className="metric">
-                <dt>מסד נתונים</dt>
-                <dd>
-                  <span
-                    className={`badge ${
-                      state.report.database.reachable ? 'badge--ok' : 'badge--error'
-                    }`}
-                  >
-                    {state.report.database.reachable ? 'מחובר' : 'לא מחובר'}
-                  </span>
-                </dd>
-              </div>
-
-              <div className="metric">
-                <dt>זמן תגובה</dt>
-                <dd>{state.report.database.latencyMs} מ״ש</dd>
-              </div>
-
-              <div className="metric">
-                <dt>עודכן</dt>
-                <dd>{new Date(state.report.timestamp).toLocaleTimeString('he-IL')}</dd>
-              </div>
-            </dl>
-          </>
-        )}
-
-        <button type="button" className="refresh" onClick={() => void loadHealth()}>
-          רענון בדיקה
-        </button>
-      </section>
-    </main>
+    <VerticalProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<TodayPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/clients/:id" element={<ClientDetailPage />} />
+            <Route path="/debts" element={<DebtsPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/confirm/:id" element={<ConfirmPage />} />
+          <Route path="/pay/:id" element={<PayPage />} />
+        </Routes>
+      </BrowserRouter>
+    </VerticalProvider>
   )
 }
-
-export default App

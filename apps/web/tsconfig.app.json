@@ -16,9 +16,17 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    /* Path aliases (mirrors vite.config.ts resolve.alias) */
+    "paths": {
+      "@/*": ["./src/*"],
+      "next/link": ["./src/shims/next-link.tsx"],
+      "next/navigation": ["./src/shims/next-navigation.ts"]
+    },
+
+    /* Linting — unused-var checks stay off to keep v0-synced UI files
+       byte-identical (handoff section 6); oxlint covers our own code. */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },

@@ -1,171 +1,145 @@
+@import '@fontsource-variable/assistant';
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Design system for the coach operating tool — "ink mode".
+  Minimal, dark, high-contrast. A single accent (green) carries all
+  positive/paid meaning; debt is expressed through neutral emphasis
+  (bright foreground) rather than a second hue. Dense, fast, RTL-first.
+*/
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-court: var(--court);
+  --color-court-strong: var(--court-strong);
+  --color-court-tint: var(--court-tint);
+  --color-owed: var(--owed);
+  --color-owed-tint: var(--owed-tint);
+  --color-paid: var(--court);
+  --color-paid-tint: var(--court-tint);
+  --color-muted: var(--muted);
+
+  /* shadcn compatibility (button, etc.) mapped to our palette */
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--paper);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--ink);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--court-tint);
+  --color-accent-foreground: var(--court);
+  --color-destructive: var(--owed);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--ink);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--ink);
+
+  --font-sans: var(--font-assistant), system-ui, sans-serif;
+
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.5rem;
+  --radius: 0.875rem;
+
+  --shadow-sm: 0 1px 2px rgba(11, 32, 27, 0.06), 0 1px 3px rgba(11, 32, 27, 0.05);
+  --shadow-card: 0 1px 2px rgba(11, 32, 27, 0.04), 0 10px 28px -18px rgba(11, 32, 27, 0.28);
+  --shadow-md: 0 8px 24px -12px rgba(11, 32, 27, 0.22);
+  --shadow-lg: 0 24px 60px -24px rgba(11, 32, 27, 0.35);
+  --shadow-frame: 0 40px 120px -32px rgba(9, 28, 23, 0.45), 0 8px 28px -12px rgba(9, 28, 23, 0.25);
+  --shadow-nav: 0 -1px 0 rgba(11, 32, 27, 0.04), 0 -12px 32px -20px rgba(11, 32, 27, 0.3);
+}
+
 :root {
-  --color-bg: #0b1120;
-  --color-surface: #131c30;
-  --color-border: #223049;
-  --color-text: #f4f7fb;
-  --color-muted: #97a5bd;
-  --color-accent: #5b8cff;
-  --color-ok: #34d399;
-  --color-warn: #fbbf24;
-  --color-error: #f87171;
-
-  font-family: 'Heebo', system-ui, -apple-system, 'Segoe UI', sans-serif;
   color-scheme: dark;
+  /* Vite build: the Assistant variable font is bundled via @fontsource */
+  --font-assistant: 'Assistant Variable', 'Assistant';
+  /* canvas = the black stage behind the device frame */
+  --canvas: #050706;
+  /* ink = primary foreground (near-white) */
+  --ink: #f0f3f1;
+  /* paper = app background inside the frame */
+  --paper: #0c0f0e;
+  /* surface = cards */
+  --surface: #141817;
+  --surface-2: #1c211f;
+  --line: #262c2a;
+  /* the single accent: green for positive / paid / brand */
+  --court: #32c295;
+  --court-strong: #26a37d;
+  --court-tint: #123027;
+  /* debt is neutral emphasis, not a second hue */
+  --owed: #f0f3f1;
+  --owed-tint: #1c211f;
+  --muted: #828d88;
 }
 
-* {
-  box-sizing: border-box;
+@layer base {
+  * {
+    @apply border-border;
+    min-width: 0;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-canvas text-ink antialiased;
+    font-feature-settings: 'tnum' 1, 'cv11' 1;
+  }
+  /* Numbers and currency stay LTR inside RTL text */
+  .ltr-nums {
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: radial-gradient(circle at 15% 10%, #1b2946 0%, var(--color-bg) 55%);
-  color: var(--color-text);
-}
-
-.page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 24px;
-}
-
-.card {
-  width: 100%;
-  max-width: 480px;
-  padding: 32px;
-  border: 1px solid var(--color-border);
-  border-radius: 20px;
-  background: var(--color-surface);
-  box-shadow: 0 24px 60px rgba(3, 8, 20, 0.55);
-}
-
-.card__header {
-  margin-bottom: 28px;
-}
-
-.card__eyebrow {
-  display: inline-block;
-  margin-bottom: 12px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: rgba(91, 140, 255, 0.12);
-  color: var(--color-accent);
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.card__title {
-  margin: 0 0 8px;
-  font-size: 1.6rem;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.card__subtitle {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: 0.95rem;
-  line-height: 1.6;
-}
-
-.status {
-  margin: 0 0 24px;
-  color: var(--color-muted);
-}
-
-.status--error {
-  padding: 16px;
-  border: 1px solid rgba(248, 113, 113, 0.35);
-  border-radius: 12px;
-  background: rgba(248, 113, 113, 0.08);
-  color: var(--color-error);
-}
-
-.status--error p {
-  margin: 6px 0 0;
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.message {
-  margin: 0 0 20px;
-  padding: 12px 16px;
-  border: 1px dashed var(--color-border);
-  border-radius: 12px;
-  color: var(--color-accent);
-  font-size: 0.9rem;
-  direction: ltr;
-  text-align: left;
-}
-
-.metrics {
-  margin: 0 0 28px;
-  display: grid;
-  gap: 4px;
-}
-
-.metric {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.metric:last-child {
-  border-bottom: none;
-}
-
-.metric dt {
-  color: var(--color-muted);
-  font-size: 0.95rem;
-}
-
-.metric dd {
-  margin: 0;
-  font-weight: 500;
-}
-
-.badge {
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.badge--ok {
-  background: rgba(52, 211, 153, 0.14);
-  color: var(--color-ok);
-}
-
-.badge--warn {
-  background: rgba(251, 191, 36, 0.14);
-  color: var(--color-warn);
-}
-
-.badge--error {
-  background: rgba(248, 113, 113, 0.14);
-  color: var(--color-error);
-}
-
-.refresh {
-  width: 100%;
-  padding: 13px 20px;
-  border: none;
-  border-radius: 12px;
-  background: var(--color-accent);
-  color: #08122b;
-  font-family: inherit;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: filter 150ms ease;
-}
-
-.refresh:hover {
-  filter: brightness(1.08);
+@layer utilities {
+  /* Premium hero panels — near-black base. Revenue carries a restrained
+     green glow; debt stays a neutral graphite panel (no second hue). */
+  .bg-court-gradient {
+    background-color: #0b1210;
+    background-image: radial-gradient(120% 130% at 85% -10%, rgba(50, 194, 149, 0.22) 0%, rgba(11, 18, 16, 0) 58%),
+      linear-gradient(155deg, #101613 0%, #090c0b 100%);
+  }
+  .bg-owed-gradient {
+    background-color: #0d0f0e;
+    background-image: radial-gradient(120% 130% at 85% -10%, rgba(240, 243, 241, 0.08) 0%, rgba(13, 15, 14, 0) 58%),
+      linear-gradient(155deg, #161a19 0%, #0a0d0c 100%);
+  }
+  /* Elevated graphite action button — mid-tone (not dark), with a faint
+     emerald sheen in one corner so it reads dimensional, not monotone. */
+  .btn-elevated {
+    background-color: #2b3138;
+    background-image: radial-gradient(120% 140% at 88% -20%, rgba(50, 194, 149, 0.28) 0%, rgba(43, 49, 56, 0) 55%),
+      linear-gradient(160deg, #3a424b 0%, #2b3138 52%, #21262c 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 8px 20px -8px rgba(0, 0, 0, 0.65);
+  }
+  .btn-elevated:active {
+    background-image: radial-gradient(120% 140% at 88% -20%, rgba(50, 194, 149, 0.22) 0%, rgba(43, 49, 56, 0) 55%),
+      linear-gradient(160deg, #333b43 0%, #262b31 52%, #1d2126 100%);
+  }
+  /* Wide-tracked uppercase micro-label (Latin / numerics), WHOOP-style */
+  .tracking-label {
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
