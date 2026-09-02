@@ -2,10 +2,14 @@ import { Global, Inject, Module, type OnApplicationShutdown } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 import { Pool } from 'pg';
 import { PG_POOL } from './database.constants.js';
+import { PrismaAdminService } from './prisma-admin.service.js';
+import { PrismaService } from './prisma.service.js';
 
 @Global()
 @Module({
   providers: [
+    PrismaService,
+    PrismaAdminService,
     {
       provide: PG_POOL,
       inject: [ConfigService],
@@ -23,7 +27,7 @@ import { PG_POOL } from './database.constants.js';
       },
     },
   ],
-  exports: [PG_POOL],
+  exports: [PG_POOL, PrismaService, PrismaAdminService],
 })
 export class DatabaseModule implements OnApplicationShutdown {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
