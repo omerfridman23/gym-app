@@ -1,0 +1,199 @@
+// Coach Management App — database schema.
+// Source of truth for tables/columns. RLS policies, the app_user role,
+// and calculated views (client_debt, package_balance) live as SQL in the
+// migration files — Prisma cannot express them (see docs/SPEC.md).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Connection URLs are configured in prisma.config.ts (CLI/migrations,
+// direct URL) and in the runtime pg driver adapter (pooled URL).
+datasource db {
+  provider = "postgresql"
+}
+
+enum Vertical {
+  padel
+  fitness
+
+  @@map("vertical")
+}
+
+enum SessionStatus {
+  pending
+  confirmed
+  cancelled
+  done
+
+  @@map("session_status")
+}
+
+enum Attendance {
+  arrived
+  no_show
+
+  @@map("attendance")
+}
+
+enum PaymentMethod {
+  cash
+  bit
+  transfer
+  card
+
+  @@map("payment_method")
+}
+
+model Coach {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone               String    @unique // E.164, e.g. +9725...
+  name                String    @default("")
+  vertical            Vertical?
+  defaultPriceAgorot  Int       @default(0) @map("default_price_agorot")
+  reminderHoursBefore Int       @default(24) @map("reminder_hours_before")
+  cancellationPolicy  String    @default("") @map("cancellation_policy")
+  templates           Json      @default("{}")
+  onboardedAt         DateTime? @map("onboarded_at") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  clients  Client[]
+  sessions Session[]
+  series   SessionSeries[]
+  packages Package[]
+  payments Payment[]
+
+  @@map("coaches")
+}
+
+model Client {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  coachId     String    @map("coach_id") @db.Uuid
+  name        String
+  phone       String
+  // Vertical-specific fields (level/side for padel, goal/notes for fitness),
+  // keyed by VERTICAL_CONFIG.clientFields — schemaless by design.
+  fields      Json      @default("{}")
+  priceAgorot Int       @default(0) @map("price_agorot")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  coach    Coach           @relation(fields: [coachId], references: [id])
+  sessions Session[]
+  series   SessionSeries[]
+  packages Package[]
+  payments Payment[]
+
+  @@index([coachId])
+  @@map("clients")
+}
+
+// Recurring-session template: "every Sunday 18:00, 60 min, court 1".
+// Concrete sessions are generated from it and point back via seriesId.
+model SessionSeries {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  coachId     String    @map("coach_id") @db.Uuid
+  clientId    String    @map("client_id") @db.Uuid
+  typeId      String    @map("type_id") // id from VERTICAL_CONFIG.sessionTypes
+  weekday     Int // 0 = Sunday .. 6 = Saturday (Israel week)
+  timeLocal   String    @map("time_local") // "HH:MM" in Asia/Jerusalem
+  durationMin Int       @map("duration_min")
+  location    String?
+  priceAgorot Int       @map("price_agorot")
+  startsOn    DateTime  @map("starts_on") @db.Date
+  endsOn      DateTime? @map("ends_on") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  coach    Coach     @relation(fields: [coachId], references: [id])
+  client   Client    @relation(fields: [clientId], references: [id])
+  sessions Session[]
+
+  @@index([coachId])
+  @@map("session_series")
+}
+
+model Session {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  coachId          String        @map("coach_id") @db.Uuid
+  clientId         String        @map("client_id") @db.Uuid
+  seriesId         String?       @map("series_id") @db.Uuid
+  typeId           String        @map("type_id")
+  startsAt         DateTime      @map("starts_at") @db.Timestamptz(6) // stored UTC, shown Asia/Jerusalem
+  durationMin      Int           @map("duration_min")
+  location         String?
+  priceAgorot      Int           @map("price_agorot") // 0 when covered by a package
+  status           SessionStatus @default(pending)
+  paid             Boolean       @default(false)
+  packageId        String?       @map("package_id") @db.Uuid
+  reminderSent     Boolean       @default(false) @map("reminder_sent")
+  reminderAnswered Boolean       @default(false) @map("reminder_answered")
+  attendance       Attendance?
+  cancelReason     String?       @map("cancel_reason")
+  // One-time public confirmation token (/c/[token]); expires with the session.
+  confirmToken     String        @unique @default(dbgenerated("gen_random_uuid()")) @map("confirm_token") @db.Uuid
+  confirmExpiresAt DateTime?     @map("confirm_expires_at") @db.Timestamptz(6)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt        DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  coach   Coach          @relation(fields: [coachId], references: [id])
+  client  Client         @relation(fields: [clientId], references: [id])
+  series  SessionSeries? @relation(fields: [seriesId], references: [id])
+  package Package?       @relation(fields: [packageId], references: [id])
+
+  @@index([coachId, startsAt])
+  @@index([clientId])
+  @@map("sessions")
+}
+
+model Package {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  coachId         String    @map("coach_id") @db.Uuid
+  clientId        String    @map("client_id") @db.Uuid
+  totalSessions   Int       @map("total_sessions")
+  purchasedAgorot Int       @map("purchased_agorot")
+  purchasedAt     DateTime  @default(now()) @map("purchased_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  coach    Coach     @relation(fields: [coachId], references: [id])
+  client   Client    @relation(fields: [clientId], references: [id])
+  sessions Session[]
+
+  @@index([coachId])
+  @@map("packages")
+}
+
+model Payment {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  coachId      String        @map("coach_id") @db.Uuid
+  clientId     String        @map("client_id") @db.Uuid
+  amountAgorot Int           @map("amount_agorot")
+  method       PaymentMethod
+  paidAt       DateTime      @default(now()) @map("paid_at") @db.Timestamptz(6)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  coach  Coach  @relation(fields: [coachId], references: [id])
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@index([coachId])
+  @@index([clientId])
+  @@map("payments")
+}
+
+// Pre-auth: no coach FK, locked to the service role by RLS (no app_user access).
+model OtpCode {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone      String
+  codeHash   String    @map("code_hash")
+  attempts   Int       @default(0)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([phone])
+  @@map("otp_codes")
+}
