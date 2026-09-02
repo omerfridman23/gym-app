@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Dumbbell, Target } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
 import { useVertical } from '@/lib/vertical-context'
 import { type Vertical } from '@/lib/vertical-config'
 
@@ -14,14 +15,31 @@ const VERTICALS: { id: Vertical; label: string; desc: string; icon: React.ReactN
 export default function OnboardingPage() {
   const router = useRouter()
   const { setVertical } = useVertical()
+  const { completeOnboarding } = useAuth()
   const [step, setStep] = useState(0)
   const [picked, setPicked] = useState<Vertical | null>(null)
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const finish = () => {
-    if (picked) setVertical(picked)
-    router.push('/')
+  const finish = async () => {
+    if (!picked || saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await completeOnboarding({
+        vertical: picked,
+        name: name.trim(),
+        // Money is stored as integer agorot; the input is in shekels.
+        ...(price ? { defaultPriceAgorot: Number(price) * 100 } : {}),
+      })
+      setVertical(picked)
+      router.push('/')
+    } catch {
+      setError('שמירה נכשלה, נסו שוב')
+      setSaving(false)
+    }
   }
 
   return (
@@ -121,11 +139,13 @@ export default function OnboardingPage() {
           </div>
 
           <div className="flex-1" />
+          {error ? <p className="mt-4 text-sm font-medium text-destructive">{error}</p> : null}
           <button
-            onClick={finish}
-            className="mt-8 w-full rounded-2xl bg-court py-4 text-base font-semibold text-white shadow-btn transition active:scale-[0.98] active:bg-court-strong"
+            onClick={() => void finish()}
+            disabled={saving}
+            className="mt-8 w-full rounded-2xl bg-court py-4 text-base font-semibold text-white shadow-btn transition active:scale-[0.98] active:bg-court-strong disabled:opacity-60"
           >
-            {name.trim() ? `בואו נתחיל, ${name.trim()}` : 'בואו נתחיל'}
+            {saving ? 'שומרים…' : name.trim() ? `בואו נתחיל, ${name.trim()}` : 'בואו נתחיל'}
           </button>
         </section>
       )}
