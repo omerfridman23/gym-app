@@ -7,6 +7,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
 import { PackagesModule } from './packages/packages.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
+import { PublicModule } from './public/public.module.js';
 import { SessionsModule } from './sessions/sessions.module.js';
 
 @Module({
@@ -24,6 +25,7 @@ import { SessionsModule } from './sessions/sessions.module.js';
     SessionsModule,
     PaymentsModule,
     PackagesModule,
+    PublicModule,
   ],
 })
 export class AppModule {}

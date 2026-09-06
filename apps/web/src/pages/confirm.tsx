@@ -1,19 +1,40 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { CalendarCheck, CalendarX, Check, Clock, MapPin, X } from 'lucide-react'
-import { findSessionAnywhere } from '@/lib/public'
-import { addMinutesToTime, formatHebrewDate } from '@/lib/format'
-
-type Answer = 'confirmed' | 'declined' | null
+import { publicApi, type PublicConfirmInfo } from '@/lib/api'
+import { addMinutesToTime, formatHebrewDate, toISODate } from '@/lib/format'
 
 export default function ConfirmPage() {
   const params = useParams<{ id: string }>()
-  const info = useMemo(() => findSessionAnywhere(params.id), [params.id])
-  const [answer, setAnswer] = useState<Answer>(null)
+  // undefined = loading, null = link not found
+  const [info, setInfo] = useState<PublicConfirmInfo | null | undefined>(undefined)
+  const [changing, setChanging] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  if (!info || !info.client) {
+  useEffect(() => {
+    let cancelled = false
+    publicApi
+      .getConfirmInfo(params.id)
+      .then((result) => !cancelled && setInfo(result))
+      .catch(() => !cancelled && setInfo(null))
+    return () => {
+      cancelled = true
+    }
+  }, [params.id])
+
+  if (info === undefined) {
+    return (
+      <PublicShell>
+        <div className="flex justify-center">
+          <span className="size-8 animate-pulse rounded-2xl bg-court" aria-label="טוען…" />
+        </div>
+      </PublicShell>
+    )
+  }
+
+  if (info === null) {
     return (
       <PublicShell>
         <div className="text-center">
@@ -24,14 +45,36 @@ export default function ConfirmPage() {
     )
   }
 
-  const { session, client, coachName } = info
-  const endTime = addMinutesToTime(session.time, session.durationMin)
+  const start = new Date(info.startsAt)
+  const dateIso = toISODate(start)
+  const time = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`
+  const endTime = addMinutesToTime(time, info.durationMin)
+
+  const answer =
+    info.status === 'confirmed' || info.status === 'done'
+      ? 'confirmed'
+      : info.status === 'cancelled'
+        ? 'declined'
+        : null
+  const showButtons = answer === null || changing
+
+  const send = (value: 'confirm' | 'decline') => {
+    setSaving(true)
+    publicApi
+      .answerConfirm(params.id, value)
+      .then((result) => {
+        setInfo(result)
+        setChanging(false)
+      })
+      .catch(() => setInfo(null))
+      .finally(() => setSaving(false))
+  }
 
   return (
     <PublicShell>
       <header className="text-center">
-        <p className="text-sm font-medium text-muted">אישור אימון · {coachName}</p>
-        <h1 className="mt-1 text-xl font-bold text-ink">שלום {client.name.split(' ')[0]}</h1>
+        <p className="text-sm font-medium text-muted">אישור אימון · {info.coachName}</p>
+        <h1 className="mt-1 text-xl font-bold text-ink">שלום {info.clientFirstName}</h1>
       </header>
 
       {/* Session card */}
@@ -39,35 +82,37 @@ export default function ConfirmPage() {
         <div className="bg-gradient-to-b from-court to-court-strong px-6 py-7 text-center">
           <p className="text-sm font-medium text-white/80">האימון שלך</p>
           <p className="mt-1 text-2xl font-bold text-white text-balance">
-            {formatHebrewDate(session.date)}
+            {formatHebrewDate(dateIso)}
           </p>
         </div>
         <div className="space-y-3 px-6 py-5 text-sm">
           <Row icon={<Clock className="size-4 text-court" />}>
             <span className="ltr-nums font-medium">
-              {session.time}–{endTime}
+              {time}–{endTime}
             </span>
           </Row>
-          {session.location ? (
-            <Row icon={<MapPin className="size-4 text-court" />}>{session.location}</Row>
+          {info.location ? (
+            <Row icon={<MapPin className="size-4 text-court" />}>{info.location}</Row>
           ) : null}
         </div>
       </div>
 
-      {answer === null ? (
+      {showButtons ? (
         <>
           <p className="mt-7 text-center text-sm text-muted">האם תגיע/י לאימון?</p>
           <div className="mt-3 flex flex-col gap-3">
             <button
-              onClick={() => setAnswer('confirmed')}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-court py-4 text-base font-semibold text-white shadow-btn transition active:scale-[0.98] active:bg-court-strong"
+              onClick={() => send('confirm')}
+              disabled={saving}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-court py-4 text-base font-semibold text-white shadow-btn transition active:scale-[0.98] active:bg-court-strong disabled:opacity-50"
             >
               <Check className="size-5" />
               מאשר/ת הגעה
             </button>
             <button
-              onClick={() => setAnswer('declined')}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-line bg-card py-4 text-base font-semibold text-ink transition active:scale-[0.98] active:bg-court-tint"
+              onClick={() => send('decline')}
+              disabled={saving}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-line bg-card py-4 text-base font-semibold text-ink transition active:scale-[0.98] active:bg-court-tint disabled:opacity-50"
             >
               <X className="size-5" />
               לא אוכל להגיע
@@ -75,15 +120,19 @@ export default function ConfirmPage() {
           </div>
         </>
       ) : (
-        <Result answer={answer} onReset={() => setAnswer(null)} />
+        <Result answer={answer} onReset={() => setChanging(true)} />
       )}
-
-      <p className="mt-7 text-center text-xs text-muted">הדגמה בלבד</p>
     </PublicShell>
   )
 }
 
-function Result({ answer, onReset }: { answer: Exclude<Answer, null>; onReset: () => void }) {
+function Result({
+  answer,
+  onReset,
+}: {
+  answer: 'confirmed' | 'declined'
+  onReset: () => void
+}) {
   const confirmed = answer === 'confirmed'
   return (
     <div className="mt-7 flex flex-col items-center text-center">

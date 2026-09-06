@@ -58,7 +58,7 @@ export default function ClientDetailPage() {
     שם: client.name.split(' ')[0],
     סכום: formatShekel(owed),
     מספר: String(owedCount),
-    קישור: 'https://coach.link/pay/' + client.id,
+    קישור: `${window.location.origin}/pay/${client.id}`,
   })
 
   const firstName = client.name.split(' ')[0]

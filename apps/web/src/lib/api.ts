@@ -83,6 +83,7 @@ export interface ApiSession {
   id: string;
   clientId: string;
   seriesId: string | null;
+  confirmToken: string;
   typeId: string;
   startsAt: string;
   durationMin: number;
@@ -208,6 +209,44 @@ export const dataApi = {
   async listPackages(): Promise<ApiPackage[]> {
     const { packages } = await request<{ packages: ApiPackage[] }>('/packages');
     return packages;
+  },
+};
+
+// --- Public token links (no auth) ---
+
+export interface PublicConfirmInfo {
+  clientFirstName: string;
+  coachName: string;
+  startsAt: string;
+  durationMin: number;
+  location: string | null;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'done';
+}
+
+export interface PublicPayInfo {
+  clientFirstName: string;
+  coachName: string;
+  sessions: { id: string; startsAt: string; priceAgorot: number }[];
+  totalAgorot: number;
+}
+
+export const publicApi = {
+  async getConfirmInfo(token: string): Promise<PublicConfirmInfo> {
+    const { info } = await request<{ info: PublicConfirmInfo }>(`/public/confirm/${token}`);
+    return info;
+  },
+
+  async answerConfirm(token: string, answer: 'confirm' | 'decline'): Promise<PublicConfirmInfo> {
+    const { info } = await request<{ info: PublicConfirmInfo }>(
+      `/public/confirm/${token}/answer`,
+      { method: 'POST', body: JSON.stringify({ answer }) },
+    );
+    return info;
+  },
+
+  async getPayInfo(clientId: string): Promise<PublicPayInfo> {
+    const { info } = await request<{ info: PublicPayInfo }>(`/public/pay/${clientId}`);
+    return info;
   },
 };
 

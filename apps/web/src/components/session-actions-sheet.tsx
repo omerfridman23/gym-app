@@ -38,7 +38,9 @@ export function SessionActionsSheet({
     שם: client.name.split(' ')[0],
     שעה: session.time,
     מיקום: session.location ?? '',
-    קישור: 'https://coach.link/c/' + client.id,
+    קישור: session.confirmToken
+      ? `${window.location.origin}/confirm/${session.confirmToken}`
+      : '',
   })
   const active = session.status !== 'cancelled'
 

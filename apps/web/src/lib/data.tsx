@@ -64,6 +64,7 @@ function toUiSession(s: ApiSession): Session {
   return {
     id: s.id,
     clientId: s.clientId,
+    confirmToken: s.confirmToken,
     typeId: s.typeId,
     date: toISODate(start),
     time: `${pad(start.getHours())}:${pad(start.getMinutes())}`,

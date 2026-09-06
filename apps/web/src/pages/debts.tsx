@@ -28,7 +28,7 @@ export default function DebtsPage() {
       שם: d.client.name.split(' ')[0],
       סכום: formatShekel(d.amount),
       מספר: String(d.sessions.length),
-      קישור: 'https://coach.link/pay/' + d.client.id,
+      קישור: `${window.location.origin}/pay/${d.client.id}`,
     })
 
   return (

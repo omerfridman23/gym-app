@@ -25,6 +25,8 @@ export interface Client {
 export interface Session {
   id: string
   clientId: string
+  /** Public one-time token for the /confirm/:token client link. */
+  confirmToken?: string
   typeId: string
   date: string // yyyy-mm-dd (Asia/Jerusalem)
   time: string // HH:MM

@@ -137,6 +137,22 @@ SMS OTP → JWT in an httpOnly cookie (`coach_session`, 30 days).
   the `client_debt` view stays consistent).
 - `GET/POST /api/packages` — list includes computed `remaining`.
 
+### Public token endpoints (no auth)
+
+Serve the client-facing links; lookups run on the privileged connection,
+always scoped by an unguessable UUID from the link:
+
+- `GET /api/public/confirm/:token` — session info (client first name, coach
+  name, time, location, status) by `confirm_token`.
+- `POST /api/public/confirm/:token/answer` — body `{ answer: 'confirm' |
+  'decline' }`; sets the session `confirmed` or `cancelled` (reason "ביטל/ה
+  דרך הקישור") and marks `reminder_answered`. Ignored once the session has
+  ended.
+- `GET /api/public/pay/:clientId` — the client's open debt (same rule as the
+  coach app: past, unpaid, non-package sessions) with per-session breakdown.
+  The pay page displays it; actual charging (PSP) is not integrated — the pay
+  button is still a demo.
+
 ### Frontend data layer
 
 `DataProvider` (`apps/web/src/lib/data.tsx`) loads the coach's dataset after
@@ -199,6 +215,9 @@ The coach's stored `vertical` is synced into `VerticalProvider` on login.
 - ✅ Phase 3: mock data removed — clients, sessions, payments, packages, and
   settings run against the real API/database (create client & session,
   weekly-recurring series, confirm/cancel, mark paid, debts, reports).
-- ⏭ Phase 4+: reminders worker, public confirm/pay pages against real tokens
-  (`lib/public.ts` currently returns "not found"), deploy migration to Neon
-  main + Railway.
+- ✅ Phase 4: public confirm/pay pages run against real tokens
+  (`/api/public/*`); WhatsApp templates now embed real
+  `/confirm/:token` and `/pay/:clientId` links.
+- ⏭ Phase 5+: reminders worker (needs a paid SMS route — WhatsApp links stay
+  manual until then), payment provider integration for the pay page, deploy
+  migration to Neon main + Railway.
