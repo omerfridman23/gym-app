@@ -26,6 +26,7 @@ export default function DebtsPage() {
   const debtMessage = (d: Debtor) =>
     fillTemplate(ds.settings.templates.debt, {
       שם: d.client.name.split(' ')[0],
+      מאמן: ds.settings.name,
       סכום: formatShekel(d.amount),
       מספר: String(d.sessions.length),
       קישור: `${window.location.origin}/pay/${d.client.id}`,

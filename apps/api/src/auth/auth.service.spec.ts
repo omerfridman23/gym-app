@@ -1,7 +1,9 @@
 import { BadRequestException, HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import type { JwtService } from '@nestjs/jwt';
 import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEV_COACH_NAME, DEV_COACH_PHONE } from './auth.constants.js';
 import type { AuthRepository } from './auth.repository.js';
 import { AuthService } from './auth.service.js';
 import type { SmsProvider } from './sms/sms-provider.js';
@@ -36,6 +38,14 @@ function makeRepo(): RepoMock {
     recordFailedAttempt: vi.fn().mockResolvedValue(1),
     consumeOtp: vi.fn().mockResolvedValue(undefined),
     findOrCreateCoach: vi.fn().mockResolvedValue(coachRow()),
+    findOrCreateDevCoach: vi.fn().mockResolvedValue(
+      coachRow({
+        phone: DEV_COACH_PHONE,
+        name: DEV_COACH_NAME,
+        vertical: 'fitness',
+        onboardedAt: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+    ),
   } as unknown as RepoMock;
 }
 
@@ -44,16 +54,23 @@ describe('AuthService', () => {
   let jwt: { signAsync: ReturnType<typeof vi.fn>; verifyAsync: ReturnType<typeof vi.fn> };
   let sms: { sendOtp: ReturnType<typeof vi.fn> };
   let service: AuthService;
+  let config: { get: ReturnType<typeof vi.fn> };
+
+  function makeService(nodeEnv = 'test') {
+    config = { get: vi.fn((key: string) => (key === 'NODE_ENV' ? nodeEnv : undefined)) };
+    return new AuthService(
+      repo as unknown as AuthRepository,
+      jwt as unknown as JwtService,
+      sms as unknown as SmsProvider,
+      config as unknown as ConfigService,
+    );
+  }
 
   beforeEach(() => {
     repo = makeRepo();
     jwt = { signAsync: vi.fn().mockResolvedValue('signed.jwt.token'), verifyAsync: vi.fn() };
     sms = { sendOtp: vi.fn().mockResolvedValue(undefined) };
-    service = new AuthService(
-      repo as unknown as AuthRepository,
-      jwt as unknown as JwtService,
-      sms as unknown as SmsProvider,
-    );
+    service = makeService();
   });
 
   describe('normalizePhone', () => {
@@ -159,6 +176,19 @@ describe('AuthService', () => {
 
       expect(expiresAt.getTime()).toBeGreaterThanOrEqual(before + OTP_TTL_MS - 50);
       expect(expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + OTP_TTL_MS + 50);
+    });
+
+    it('skips SMS for the local 1111 shortcut', async () => {
+      await expect(service.requestOtp('1111')).resolves.toBeUndefined();
+      expect(repo.countRecentOtpRequests).not.toHaveBeenCalled();
+      expect(repo.createOtp).not.toHaveBeenCalled();
+      expect(sms.sendOtp).not.toHaveBeenCalled();
+    });
+
+    it('still rejects 1111 in production', async () => {
+      service = makeService('production');
+      await expect(service.requestOtp('1111')).rejects.toThrow(BadRequestException);
+      expect(sms.sendOtp).not.toHaveBeenCalled();
     });
 
     it('does not send an SMS if persisting the code fails', async () => {
@@ -281,6 +311,33 @@ describe('AuthService', () => {
       await service.verifyOtp(phone, '123456');
 
       expect(order).toEqual(['consume', 'sign']);
+    });
+
+    it('logs in the local Omer coach for code 1111 without an SMS', async () => {
+      const result = await service.verifyOtp('0501234567', '1111');
+
+      expect(repo.findActiveOtp).not.toHaveBeenCalled();
+      expect(repo.findOrCreateCoach).not.toHaveBeenCalled();
+      expect(repo.findOrCreateDevCoach).toHaveBeenCalledWith(DEV_COACH_PHONE, DEV_COACH_NAME);
+      expect(jwt.signAsync).toHaveBeenCalledWith({ sub: 'coach-1' });
+      expect(result.coach).toMatchObject({
+        phone: DEV_COACH_PHONE,
+        name: DEV_COACH_NAME,
+        onboarded: true,
+      });
+    });
+
+    it('logs in the local Omer coach when the phone field is 1111', async () => {
+      await expect(service.verifyOtp('1111', '1111')).resolves.toMatchObject({
+        token: 'signed.jwt.token',
+        coach: { name: DEV_COACH_NAME, onboarded: true },
+      });
+    });
+
+    it('does not accept the 1111 shortcut in production', async () => {
+      service = makeService('production');
+      await expect(service.verifyOtp('0501234567', '1111')).rejects.toThrow(UnauthorizedException);
+      expect(repo.findOrCreateDevCoach).not.toHaveBeenCalled();
     });
 
     it('never leaks the expected code in the error message', async () => {

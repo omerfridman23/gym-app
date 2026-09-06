@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { CalendarCheck, CalendarX, Check, Clock, MapPin, X } from 'lucide-react'
+import { CalendarCheck, CalendarPlus, CalendarX, Check, Clock, MapPin, X } from 'lucide-react'
 import { publicApi, type PublicConfirmInfo } from '@/lib/api'
 import { addMinutesToTime, formatHebrewDate, toISODate } from '@/lib/format'
+import { downloadSessionIcs } from '@/lib/ics'
 
 export default function ConfirmPage() {
   const params = useParams<{ id: string }>()
@@ -122,6 +123,25 @@ export default function ConfirmPage() {
       ) : (
         <Result answer={answer} onReset={() => setChanging(true)} />
       )}
+
+      {answer === 'confirmed' ? (
+        <button
+          onClick={() =>
+            downloadSessionIcs({
+              id: params.id,
+              date: dateIso,
+              time,
+              durationMin: info.durationMin,
+              title: `אימון עם ${info.coachName}`,
+              location: info.location ?? undefined,
+            })
+          }
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-card py-4 text-base font-semibold text-ink transition active:scale-[0.98] active:bg-court-tint"
+        >
+          <CalendarPlus className="size-5" />
+          הוספה ליומן
+        </button>
+      ) : null}
     </PublicShell>
   )
 }

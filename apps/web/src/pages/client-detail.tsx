@@ -56,6 +56,7 @@ export default function ClientDetailPage() {
 
   const debtText = fillTemplate(ds.settings.templates.debt, {
     שם: client.name.split(' ')[0],
+    מאמן: ds.settings.name,
     סכום: formatShekel(owed),
     מספר: String(owedCount),
     קישור: `${window.location.origin}/pay/${client.id}`,

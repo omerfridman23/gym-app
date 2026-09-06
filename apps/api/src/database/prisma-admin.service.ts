@@ -5,7 +5,8 @@ import { PrismaClient } from '../generated/prisma/client.js';
 
 /**
  * Privileged Prisma client (table owner, direct URL). Bypasses RLS.
- * ONLY for pre-auth flows: OTP codes and coach lookup/creation — nothing else.
+ * ONLY for pre-auth flows and owner-only tables: OTP codes, settings,
+ * and coach lookup/creation — nothing else.
  * Business data access must use PrismaService.withCoach instead.
  */
 @Injectable()

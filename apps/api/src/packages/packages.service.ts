@@ -36,7 +36,9 @@ export class PackagesService {
     });
   }
 
-  create(coachId: string, input: CreatePackageInput): Promise<PackageWithRemaining> {
+  // `async` so invalid input rejects instead of throwing synchronously out of
+  // a Promise-returning method.
+  async create(coachId: string, input: CreatePackageInput): Promise<PackageWithRemaining> {
     const total = Math.trunc(Number(input?.totalSessions));
     const purchased = Math.trunc(Number(input?.purchasedAgorot));
     if (!input?.clientId || Number.isNaN(total) || total <= 0 || total > 1000) {

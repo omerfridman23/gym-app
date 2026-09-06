@@ -130,6 +130,10 @@ model Session {
   packageId        String?       @map("package_id") @db.Uuid
   reminderSent     Boolean       @default(false) @map("reminder_sent")
   reminderAnswered Boolean       @default(false) @map("reminder_answered")
+  // Delivery bookkeeping for the automatic reminder worker: it claims a
+  // session by bumping these two, then flips reminderSent once the SMS is out.
+  reminderAttempts      Int       @default(0) @map("reminder_attempts")
+  reminderLastAttemptAt DateTime? @map("reminder_last_attempt_at") @db.Timestamptz(6)
   attendance       Attendance?
   cancelReason     String?       @map("cancel_reason")
   // One-time public confirmation token (/c/[token]); expires with the session.
@@ -196,4 +200,13 @@ model OtpCode {
 
   @@index([phone])
   @@map("otp_codes")
+}
+
+// App-wide key/value store. Owner-only (no app_user grants), like otp_codes.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("settings")
 }

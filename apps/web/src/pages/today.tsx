@@ -8,6 +8,7 @@ import { MetricTiles } from '@/components/metric-tiles'
 import { SessionRow } from '@/components/session-row'
 import { SessionActionsSheet } from '@/components/session-actions-sheet'
 import { NewSessionSheet } from '@/components/new-session-sheet'
+import { DueReminders } from '@/components/due-reminders'
 import { clientById, sessionsOn, totalOutstanding, useData } from '@/lib/data'
 import { formatHebrewDate } from '@/lib/format'
 import type { Session } from '@/lib/mock-data'
@@ -49,6 +50,8 @@ export default function TodayPage() {
 
       <div className="flex-1 overflow-y-auto">
         <MetricTiles sessionsToday={active.length} confirmed={confirmed} outstanding={outstanding} />
+
+        <DueReminders onSent={() => void actions.refresh()} />
 
         {sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-20 text-center">

@@ -49,4 +49,22 @@ export class AuthRepository {
       create: { phone },
     });
   }
+
+  findOrCreateDevCoach(phone: string, name: string): Promise<Coach> {
+    return this.db.coach.upsert({
+      where: { phone },
+      update: {
+        deletedAt: null,
+        name,
+        vertical: 'fitness',
+        onboardedAt: new Date(),
+      },
+      create: {
+        phone,
+        name,
+        vertical: 'fitness',
+        onboardedAt: new Date(),
+      },
+    });
+  }
 }

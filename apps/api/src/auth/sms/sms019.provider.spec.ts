@@ -1,6 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SmsSendError } from './sms-provider.js';
 import { Sms019Provider } from './sms019.provider.js';
 
 const USERNAME = 'coachapp';
@@ -99,5 +100,32 @@ describe('Sms019Provider', () => {
     await expect(provider.sendOtp('+972501234567', '654321')).rejects.toBeInstanceOf(
       InternalServerErrorException,
     );
+  });
+
+  describe('sendText (reminders)', () => {
+    it('sends an arbitrary message body verbatim', async () => {
+      const provider = new Sms019Provider(config());
+
+      await provider.sendText('+972545551201', 'היי רון, מזכיר את האימון ב-18:00');
+
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const payload = JSON.parse(init.body as string);
+      expect(payload.sms.message).toBe('היי רון, מזכיר את האימון ב-18:00');
+      expect(payload.sms.destinations.phone[0]._).toBe('0545551201');
+    });
+
+    it('reports failure as SmsSendError, not as an HTTP exception', async () => {
+      fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ status: 991 }) });
+      const provider = new Sms019Provider(config());
+
+      const error = await provider.sendText('+972545551201', 'שלום').catch((e: unknown) => e);
+
+      // Reminders run in a worker: a 500-shaped exception would be misleading,
+      // and the reason must stay loggable without leaking the token.
+      expect(error).toBeInstanceOf(SmsSendError);
+      expect(error).not.toBeInstanceOf(InternalServerErrorException);
+      expect((error as Error).message).toContain('991');
+      expect((error as Error).message).not.toContain(TOKEN);
+    });
   });
 });

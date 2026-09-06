@@ -164,19 +164,18 @@ state. A confirmed session whose end time has passed is displayed as `done`
 (debt accrues) without a DB write.
 
 SMS delivery is behind the `SmsProvider` interface (`SMS_PROVIDER` token).
-`createSmsProvider` picks the driver from `SMS_DRIVER` (default: `019` in
+`createSmsProvider` picks the driver from `SMS_DRIVER` (default: `twilio` in
 production, `dev` locally):
 
-- `019` — `Sms019Provider`, the Israeli 019 gateway (JSON API, Bearer token).
-  Required env: `SMS_019_USERNAME`, `SMS_019_TOKEN`, `SMS_019_SOURCE` (sender ID,
-  ≤11 chars). Phones are converted from E.164 to local `05XXXXXXXX`.
-- `twilio` — `TwilioSmsProvider` (Twilio Messages API). Required env:
-  `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
+- `twilio` — `TwilioSmsProvider`. Credentials come from the `settings` table
+  (`twilio.account_sid`, `twilio.api_key`, `twilio.api_secret`,
+  `twilio.from_number`), with env as fallback. Auth uses the API key, not the
+  account SID, against Twilio's Messages API.
+- `019` — `Sms019Provider`. Required env: `SMS_019_USERNAME`, `SMS_019_TOKEN`,
+  `SMS_019_SOURCE`.
 - `dev` — `DevSmsProvider`, logs the code to the API console.
 
-All providers send the 6-digit code we generate ourselves; we do not use a
-provider-hosted verify service. In production the factory throws on startup if
-the selected driver's credentials are missing.
+`settings` is owner-only (no `app_user` grants), like `otp_codes`.
 
 Cookie: `SameSite=Lax` in dev (localhost ports are same-site), `SameSite=None;
 Secure` in production (web and api are different Railway domains).
@@ -202,8 +201,8 @@ The coach's stored `vertical` is synced into `VerticalProvider` on login.
 - A session covered by a package consumes one punch and charges 0.
 - Reminder: send `reminder_hours_before` hours before `starts_at`; the client
   confirms via the public `confirm_token` link.
-- WhatsApp messages are prefilled links (`wa.me`) generated client-side from
-  `templates` — no WhatsApp API integration.
+- Client messages go out on WhatsApp from the coach (`wa.me`), using that
+  coach's template and `{מאמן}` name — not a shared SMS number.
 - Cancellation reasons come from `VERTICAL_CONFIG.cancellationReasons`.
 
 ## Current status

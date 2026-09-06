@@ -84,7 +84,7 @@ which Railway reads relative to the service root directory.
 
 Required environment variables:
 
-- **api**: `DATABASE_URL` (Neon pooled), `WEB_ORIGIN` (frontend URL), `PORT` (Railway provides it), `JWT_SECRET`, and for real SMS (default driver `019`): `SMS_019_USERNAME`, `SMS_019_TOKEN`, `SMS_019_SOURCE` (`SMS_DRIVER=twilio` uses Twilio instead; `SMS_DRIVER=dev` logs the code)
+- **api**: `DATABASE_URL` (Neon pooled), `WEB_ORIGIN` (frontend URL), `PORT` (Railway provides it), `JWT_SECRET`. Twilio SMS credentials live in the `settings` table (`SMS_DRIVER=dev` logs the code locally).
 - **web**: `VITE_API_URL` (API URL, build-time)
 
 ## Conventions

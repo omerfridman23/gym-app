@@ -1,5 +1,6 @@
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it } from 'vitest';
+import type { SettingsService } from '../../settings/settings.service.js';
 import { createSmsProvider } from './create-sms-provider.js';
 import { DevSmsProvider } from './dev-sms.provider.js';
 import { Sms019Provider } from './sms019.provider.js';
@@ -11,11 +12,7 @@ function configOf(values: Record<string, string | undefined>): ConfigService {
   } as ConfigService;
 }
 
-const twilioEnv = {
-  TWILIO_ACCOUNT_SID: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-  TWILIO_AUTH_TOKEN: 'secret-token',
-  TWILIO_FROM_NUMBER: '+15017122661',
-};
+const settings = {} as SettingsService;
 
 const sms019Env = {
   SMS_019_USERNAME: 'coachapp',
@@ -25,46 +22,41 @@ const sms019Env = {
 
 describe('createSmsProvider', () => {
   it('defaults to the console provider outside production', () => {
-    expect(createSmsProvider(configOf({ NODE_ENV: 'development' }))).toBeInstanceOf(DevSmsProvider);
-  });
-
-  it('defaults to 019 in production when credentials are present', () => {
-    expect(createSmsProvider(configOf({ NODE_ENV: 'production', ...sms019Env }))).toBeInstanceOf(
-      Sms019Provider,
+    expect(createSmsProvider(configOf({ NODE_ENV: 'development' }), settings)).toBeInstanceOf(
+      DevSmsProvider,
     );
   });
 
-  it('fails fast in production when 019 credentials are missing', () => {
-    expect(() => createSmsProvider(configOf({ NODE_ENV: 'production' }))).toThrow(
-      /SMS_019_USERNAME/,
+  it('defaults to Twilio in production (credentials live in settings)', () => {
+    expect(createSmsProvider(configOf({ NODE_ENV: 'production' }), settings)).toBeInstanceOf(
+      TwilioSmsProvider,
     );
   });
 
   it('honors an explicit SMS_DRIVER=dev even in production', () => {
     expect(
-      createSmsProvider(configOf({ NODE_ENV: 'production', SMS_DRIVER: 'dev' })),
+      createSmsProvider(configOf({ NODE_ENV: 'production', SMS_DRIVER: 'dev' }), settings),
     ).toBeInstanceOf(DevSmsProvider);
   });
 
-  it('honors an explicit SMS_DRIVER=019 outside production', () => {
+  it('honors an explicit SMS_DRIVER=019 when env is present', () => {
     expect(
-      createSmsProvider(configOf({ NODE_ENV: 'development', SMS_DRIVER: '019', ...sms019Env })),
+      createSmsProvider(
+        configOf({ NODE_ENV: 'development', SMS_DRIVER: '019', ...sms019Env }),
+        settings,
+      ),
     ).toBeInstanceOf(Sms019Provider);
   });
 
-  it('supports SMS_DRIVER=twilio when credentials are present', () => {
-    expect(
-      createSmsProvider(configOf({ NODE_ENV: 'development', SMS_DRIVER: 'twilio', ...twilioEnv })),
-    ).toBeInstanceOf(TwilioSmsProvider);
-  });
-
-  it('fails fast when a selected driver is missing credentials', () => {
-    expect(() => createSmsProvider(configOf({ SMS_DRIVER: 'twilio' }))).toThrow(
-      /TWILIO_ACCOUNT_SID/,
+  it('fails fast when 019 is selected without credentials', () => {
+    expect(() => createSmsProvider(configOf({ SMS_DRIVER: '019' }), settings)).toThrow(
+      /SMS_019_USERNAME/,
     );
   });
 
   it('rejects an unknown driver', () => {
-    expect(() => createSmsProvider(configOf({ SMS_DRIVER: 'foo' }))).toThrow(/Unknown SMS_DRIVER/);
+    expect(() => createSmsProvider(configOf({ SMS_DRIVER: 'foo' }), settings)).toThrow(
+      /Unknown SMS_DRIVER/,
+    );
   });
 });

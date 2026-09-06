@@ -23,7 +23,9 @@ export class PaymentsService {
     );
   }
 
-  create(coachId: string, input: CreatePaymentInput): Promise<Payment> {
+  // `async` so invalid input rejects instead of throwing synchronously out of
+  // a Promise-returning method.
+  async create(coachId: string, input: CreatePaymentInput): Promise<Payment> {
     const amount = Math.trunc(Number(input?.amountAgorot));
     if (!input?.clientId || Number.isNaN(amount) || amount <= 0 || amount > PG_INT4_MAX) {
       throw new BadRequestException('סכום לא תקין');

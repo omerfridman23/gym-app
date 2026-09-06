@@ -51,7 +51,9 @@ export class ClientsService {
     );
   }
 
-  create(coachId: string, input: CreateClientInput): Promise<Client> {
+  // `async` so invalid input surfaces as a rejected promise rather than a
+  // synchronous throw from a Promise-returning method.
+  async create(coachId: string, input: CreateClientInput): Promise<Client> {
     const name = text(input?.name);
     const phone = text(input?.phone, 30);
     if (!name || !phone) throw new BadRequestException('שם וטלפון הם שדות חובה');

@@ -28,9 +28,12 @@ export function SessionRow({
 
   const reminderText = fillTemplate(ds.settings.templates.reminder, {
     שם: client.name.split(' ')[0],
+    מאמן: ds.settings.name,
     שעה: session.time,
     מיקום: session.location ?? '',
-    קישור: 'https://coach.link/c/' + client.id,
+    קישור: session.confirmToken
+      ? `${window.location.origin}/confirm/${session.confirmToken}`
+      : '',
   })
 
   return (

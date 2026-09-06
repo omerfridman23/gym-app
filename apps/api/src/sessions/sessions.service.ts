@@ -24,7 +24,6 @@ export interface UpdateSessionInput {
 
 /** Number of session instances materialized when "repeat weekly" is on. */
 const SERIES_WEEKS = 12;
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const PG_INT4_MAX = 2_147_483_647;
 
 const SESSION_STATUSES = new Set(['pending', 'confirmed', 'cancelled', 'done']);
@@ -63,11 +62,58 @@ function israelParts(date: Date): { weekday: number; timeLocal: string; dateLoca
   };
 }
 
+/** Offset of Asia/Jerusalem at a given instant, in milliseconds. */
+function israelOffsetMs(at: Date): number {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+  const p = Object.fromEntries(fmt.formatToParts(at).map((x) => [x.type, x.value]));
+  const asIfUtc = Date.UTC(
+    Number(p.year),
+    Number(p.month) - 1,
+    Number(p.day),
+    Number(p.hour),
+    Number(p.minute),
+    Number(p.second),
+  );
+  return asIfUtc - at.getTime();
+}
+
+/**
+ * Israel wall-clock date+time -> the matching UTC instant.
+ *
+ * Weekly recurrence must keep the *local* hour ("every Tuesday at 18:00"),
+ * so instances cannot be produced by adding a fixed 7x24h: across Israel's
+ * DST switch that shifts the session by an hour. The offset is resolved
+ * twice because the first guess can land on the wrong side of a transition.
+ */
+export function israelWallClockToUtc(dateLocal: string, timeLocal: string): Date {
+  const naive = new Date(`${dateLocal}T${timeLocal}:00Z`);
+  const firstGuess = new Date(naive.getTime() - israelOffsetMs(naive));
+  const settledOffset = israelOffsetMs(firstGuess);
+  return new Date(naive.getTime() - settledOffset);
+}
+
+/** Add whole days to a yyyy-mm-dd string (calendar arithmetic, no timezone). */
+export function addDaysToIsoDate(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
 @Injectable()
 export class SessionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(coachId: string, fromIso?: string, toIso?: string): Promise<Session[]> {
+  // These are `async` so validation failures reject instead of throwing
+  // synchronously out of a Promise-returning method.
+  async list(coachId: string, fromIso?: string, toIso?: string): Promise<Session[]> {
     const from = fromIso ? new Date(fromIso) : undefined;
     const to = toIso ? new Date(toIso) : undefined;
     if ((from && Number.isNaN(from.getTime())) || (to && Number.isNaN(to.getTime()))) {
@@ -85,7 +131,7 @@ export class SessionsService {
     );
   }
 
-  create(coachId: string, input: CreateSessionInput): Promise<Session[]> {
+  async create(coachId: string, input: CreateSessionInput): Promise<Session[]> {
     const startsAt = new Date(input?.startsAt ?? '');
     if (!input?.clientId || Number.isNaN(startsAt.getTime())) {
       throw new BadRequestException('חסר מתאמן או מועד לא תקין');
@@ -133,13 +179,16 @@ export class SessionsService {
 
       const created: Session[] = [];
       for (let week = 0; week < SERIES_WEEKS; week += 1) {
+        // Week 0 keeps the exact instant the coach picked; later weeks are
+        // rebuilt from the local date+time so the hour survives DST.
+        const occurrence =
+          week === 0
+            ? startsAt
+            : israelWallClockToUtc(addDaysToIsoDate(dateLocal, 7 * week), timeLocal);
+
         created.push(
           await tx.session.create({
-            data: {
-              ...base,
-              seriesId: series.id,
-              startsAt: new Date(startsAt.getTime() + week * WEEK_MS),
-            },
+            data: { ...base, seriesId: series.id, startsAt: occurrence },
           }),
         );
       }
@@ -147,7 +196,7 @@ export class SessionsService {
     });
   }
 
-  update(coachId: string, sessionId: string, input: UpdateSessionInput): Promise<Session> {
+  async update(coachId: string, sessionId: string, input: UpdateSessionInput): Promise<Session> {
     if (input.status !== undefined && !SESSION_STATUSES.has(input.status)) {
       throw new BadRequestException('סטטוס לא תקין');
     }

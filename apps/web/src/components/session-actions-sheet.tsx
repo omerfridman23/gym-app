@@ -36,6 +36,7 @@ export function SessionActionsSheet({
   const type = config.sessionTypes.find((t) => t.id === session.typeId)
   const reminderText = fillTemplate(ds.settings.templates.reminder, {
     שם: client.name.split(' ')[0],
+    מאמן: ds.settings.name,
     שעה: session.time,
     מיקום: session.location ?? '',
     קישור: session.confirmToken

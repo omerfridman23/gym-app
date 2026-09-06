@@ -16,12 +16,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const codeInputRef = useRef<HTMLInputElement>(null)
 
-  const phoneValid = /^05\d{8}$/.test(phone)
+  const isDevBypass = phone === '1111'
+  const phoneValid = isDevBypass || /^05\d{8}$/.test(phone)
 
   const requestCode = async () => {
     setBusy(true)
     setError(null)
     try {
+      if (isDevBypass) {
+        await verify('1111')
+        return
+      }
       await authApi.requestOtp(phone)
       setStep('code')
       setCode('')
@@ -51,7 +56,7 @@ export default function LoginPage() {
   const onCodeChange = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 6)
     setCode(digits)
-    if (digits.length === 6 && !busy) void verify(digits)
+    if ((digits === '1111' || digits.length === 6) && !busy) void verify(digits)
   }
 
   return (
@@ -82,7 +87,7 @@ export default function LoginPage() {
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 inputMode="tel"
                 autoComplete="tel"
-                placeholder="050-0000000"
+                placeholder="050-0000000 או 1111"
                 dir="ltr"
                 className="w-full rounded-2xl border border-line bg-card px-4 py-3.5 text-left text-lg tracking-wide text-ink outline-none transition focus:border-court focus:ring-4 focus:ring-court-tint"
               />

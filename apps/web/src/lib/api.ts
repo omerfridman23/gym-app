@@ -115,6 +115,21 @@ export interface ApiPackage {
   remaining: number;
 }
 
+/** A session whose reminder is due now, with the message already rendered. */
+export interface ApiDueReminder {
+  sessionId: string;
+  clientId: string;
+  clientName: string;
+  clientPhone: string;
+  startsAt: string;
+  timeLocal: string;
+  durationMin: number;
+  location: string | null;
+  message: string;
+  confirmUrl: string;
+  whatsappUrl: string;
+}
+
 export interface CreateSessionInput {
   clientId: string;
   typeId: string;
@@ -209,6 +224,15 @@ export const dataApi = {
   async listPackages(): Promise<ApiPackage[]> {
     const { packages } = await request<{ packages: ApiPackage[] }>('/packages');
     return packages;
+  },
+
+  async listDueReminders(): Promise<ApiDueReminder[]> {
+    const { reminders } = await request<{ reminders: ApiDueReminder[] }>('/reminders/due');
+    return reminders;
+  },
+
+  async markReminderSent(sessionId: string): Promise<void> {
+    await request(`/reminders/${sessionId}/sent`, { method: 'POST' });
   },
 };
 

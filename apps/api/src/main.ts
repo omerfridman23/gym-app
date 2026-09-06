@@ -1,19 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module.js';
-
-const LOCALHOST_ORIGIN = /^http:\/\/localhost:\d+$/;
-
-function resolveCorsOrigin(): string[] | RegExp {
-  if (process.env.NODE_ENV !== 'production') {
-    return LOCALHOST_ORIGIN;
-  }
-
-  return (process.env.WEB_ORIGIN ?? '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-}
+import { resolveCorsOrigin } from './cors.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -28,4 +16,11 @@ async function bootstrap() {
   console.log(`API listening on 0.0.0.0:${port}`);
 }
 
-await bootstrap();
+try {
+  await bootstrap();
+} catch (error) {
+  // A misconfigured deploy dies here. Print the reason plainly — a stack trace
+  // scrolled past the platform's log window is what made this hard to spot.
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+}

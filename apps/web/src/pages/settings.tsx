@@ -92,6 +92,7 @@ export default function SettingsPage() {
           <p className="px-4 pb-3 pt-1 text-xs leading-relaxed text-muted">
             {'ניתן להשתמש במשתנים: '}
             <code className="rounded bg-court-tint px-1 text-court">{'{שם}'}</code>{' '}
+            <code className="rounded bg-court-tint px-1 text-court">{'{מאמן}'}</code>{' '}
             <code className="rounded bg-court-tint px-1 text-court">{'{שעה}'}</code>{' '}
             <code className="rounded bg-court-tint px-1 text-court">{'{מיקום}'}</code>{' '}
             <code className="rounded bg-court-tint px-1 text-court">{'{סכום}'}</code>{' '}

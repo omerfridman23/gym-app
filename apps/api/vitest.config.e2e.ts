@@ -7,5 +7,11 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.e2e-spec.ts'],
+    // Each spec boots a full Nest app with its own connection pool and talks to
+    // a shared database, so files run one at a time: in parallel they exhaust
+    // the pool and their fixtures interleave.
+    fileParallelism: false,
+    testTimeout: 30_000,
+    hookTimeout: 60_000,
   },
 });

@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthGuard } from './auth.guard.js';
 import { AuthRepository } from './auth.repository.js';
 import { AuthService } from './auth.service.js';
+import { SettingsService } from '../settings/settings.service.js';
 import { createSmsProvider } from './sms/create-sms-provider.js';
 import { SMS_PROVIDER } from './sms/sms-provider.js';
 
@@ -24,8 +25,15 @@ import { SMS_PROVIDER } from './sms/sms-provider.js';
     AuthService,
     AuthRepository,
     AuthGuard,
-    { provide: SMS_PROVIDER, inject: [ConfigService], useFactory: createSmsProvider },
+    SettingsService,
+    {
+      provide: SMS_PROVIDER,
+      inject: [ConfigService, SettingsService],
+      useFactory: createSmsProvider,
+    },
   ],
-  exports: [AuthService, AuthGuard],
+  // SMS_PROVIDER is exported so the reminders worker sends through the same
+  // configured gateway (and the same fail-fast config check) as login.
+  exports: [AuthService, AuthGuard, SMS_PROVIDER],
 })
 export class AuthModule {}

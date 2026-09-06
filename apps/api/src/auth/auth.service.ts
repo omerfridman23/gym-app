@@ -6,8 +6,10 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomInt } from 'node:crypto';
+import { DEV_COACH_NAME, DEV_COACH_PHONE, DEV_LOGIN_CODE } from './auth.constants.js';
 import { AuthRepository } from './auth.repository.js';
 import { SMS_PROVIDER, type SmsProvider } from './sms/sms-provider.js';
 
@@ -30,7 +32,20 @@ export class AuthService {
     private readonly repo: AuthRepository,
     private readonly jwt: JwtService,
     @Inject(SMS_PROVIDER) private readonly sms: SmsProvider,
+    private readonly config: ConfigService,
   ) {}
+
+  private isDevLogin(rawPhone: string, code?: string): boolean {
+    if (this.config.get('NODE_ENV') === 'production') return false;
+    const phone = (rawPhone ?? '').replace(/[\s-]/g, '');
+    return phone === DEV_LOGIN_CODE || code === DEV_LOGIN_CODE;
+  }
+
+  private async loginDevCoach(): Promise<{ token: string; coach: CoachSession }> {
+    const coach = await this.repo.findOrCreateDevCoach(DEV_COACH_PHONE, DEV_COACH_NAME);
+    const token = await this.jwt.signAsync({ sub: coach.id });
+    return { token, coach: this.toSession(coach) };
+  }
 
   /** Accepts 05XXXXXXXX or +9725XXXXXXXX; stores E.164. */
   normalizePhone(raw: string): string {
@@ -45,6 +60,8 @@ export class AuthService {
   }
 
   async requestOtp(rawPhone: string): Promise<void> {
+    if (this.isDevLogin(rawPhone)) return;
+
     const phone = this.normalizePhone(rawPhone);
 
     const since = new Date(Date.now() - OTP_REQUEST_WINDOW_MS);
@@ -59,6 +76,8 @@ export class AuthService {
   }
 
   async verifyOtp(rawPhone: string, code: string): Promise<{ token: string; coach: CoachSession }> {
+    if (this.isDevLogin(rawPhone, code)) return this.loginDevCoach();
+
     const phone = this.normalizePhone(rawPhone);
     if (!/^\d{6}$/.test(code ?? '')) throw new UnauthorizedException('קוד שגוי');
 
