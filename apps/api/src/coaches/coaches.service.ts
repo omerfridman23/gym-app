@@ -10,6 +10,25 @@ export interface UpdateCoachInput {
   cancellationPolicy?: string;
 }
 
+const PG_INT4_MAX = 2_147_483_647;
+const NAME_MAX_LENGTH = 200;
+const POLICY_MAX_LENGTH = 2000;
+
+// The body reaches the service unvalidated (no global ValidationPipe), so
+// every field is sanitized here: coerced to the right type, clamped to the
+// int4 range, and bounded in length.
+function sanitizeText(value: unknown, maxLength: number): string {
+  return String(value ?? '')
+    .trim()
+    .slice(0, maxLength);
+}
+
+function sanitizeInt(value: unknown, min: number): number {
+  const n = Math.trunc(Number(value));
+  if (Number.isNaN(n)) return min;
+  return Math.min(Math.max(min, n), PG_INT4_MAX);
+}
+
 @Injectable()
 export class CoachesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -22,15 +41,17 @@ export class CoachesService {
       return tx.coach.update({
         where: { id: coachId },
         data: {
-          ...(input.name !== undefined && { name: input.name.trim() }),
+          ...(input.name !== undefined && { name: sanitizeText(input.name, NAME_MAX_LENGTH) }),
           ...(input.vertical !== undefined && { vertical: input.vertical }),
           ...(input.defaultPriceAgorot !== undefined && {
-            defaultPriceAgorot: Math.max(0, Math.trunc(input.defaultPriceAgorot)),
+            defaultPriceAgorot: sanitizeInt(input.defaultPriceAgorot, 0),
           }),
           ...(input.reminderHoursBefore !== undefined && {
-            reminderHoursBefore: Math.max(1, Math.trunc(input.reminderHoursBefore)),
+            reminderHoursBefore: sanitizeInt(input.reminderHoursBefore, 1),
           }),
-          ...(input.cancellationPolicy !== undefined && { cancellationPolicy: input.cancellationPolicy }),
+          ...(input.cancellationPolicy !== undefined && {
+            cancellationPolicy: sanitizeText(input.cancellationPolicy, POLICY_MAX_LENGTH),
+          }),
           // Choosing a vertical for the first time completes onboarding.
           ...(input.vertical !== undefined && existing.onboardedAt === null && { onboardedAt: new Date() }),
         },

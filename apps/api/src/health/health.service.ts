@@ -6,7 +6,9 @@ export interface HealthReport {
   service: string;
   message: string;
   timestamp: string;
-  database: DatabaseProbe;
+  // The raw probe error stays out of the public payload (it can contain
+  // connection details); HealthRepository already logs it server-side.
+  database: Omit<DatabaseProbe, 'error'>;
 }
 
 @Injectable()
@@ -14,14 +16,14 @@ export class HealthService {
   constructor(private readonly healthRepository: HealthRepository) {}
 
   async getReport(): Promise<HealthReport> {
-    const database = await this.healthRepository.probe();
+    const { reachable, latencyMs } = await this.healthRepository.probe();
 
     return {
-      status: database.reachable ? 'ok' : 'degraded',
+      status: reachable ? 'ok' : 'degraded',
       service: 'gym-app-api',
-      message: 'lets make plan so i can start build the project',
+      message: reachable ? 'service is healthy' : 'database is unreachable',
       timestamp: new Date().toISOString(),
-      database,
+      database: { reachable, latencyMs },
     };
   }
 }
