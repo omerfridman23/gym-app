@@ -207,17 +207,13 @@ describe('AuthService', () => {
       expect(repo.findActiveOtp).not.toHaveBeenCalled();
     });
 
-    // The .skip'd tests below cover OTP code verification, which is
-    // temporarily commented out in AuthService.verifyOtp (dev bypass: any
-    // 6-digit code logs in). Un-skip them when the verification block is
-    // restored.
-    it.skip('rejects when there is no active code', async () => {
+    it('rejects when there is no active code', async () => {
       repo.findActiveOtp.mockResolvedValue(null);
       await expect(service.verifyOtp(phone, '123456')).rejects.toThrow(UnauthorizedException);
       expect(repo.consumeOtp).not.toHaveBeenCalled();
     });
 
-    it.skip('rejects when the code is already at the attempt ceiling', async () => {
+    it('rejects when the code is already at the attempt ceiling', async () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp({ attempts: 5 }));
 
       await expect(service.verifyOtp(phone, '123456')).rejects.toThrow(UnauthorizedException);
@@ -225,7 +221,7 @@ describe('AuthService', () => {
       expect(repo.consumeOtp).not.toHaveBeenCalled();
     });
 
-    it.skip('records a failed attempt on a wrong code and does not issue a token', async () => {
+    it('records a failed attempt on a wrong code and does not issue a token', async () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp());
       repo.recordFailedAttempt.mockResolvedValue(1);
 
@@ -235,7 +231,7 @@ describe('AuthService', () => {
       expect(jwt.signAsync).not.toHaveBeenCalled();
     });
 
-    it.skip('burns the code once the 5th wrong attempt lands', async () => {
+    it('burns the code once the 5th wrong attempt lands', async () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp({ attempts: 4 }));
       repo.recordFailedAttempt.mockResolvedValue(5);
 
@@ -245,7 +241,7 @@ describe('AuthService', () => {
       expect((error as UnauthorizedException).message).toBe('הקוד פג תוקף, בקשו קוד חדש');
     });
 
-    it.skip('hashes with the normalized phone, so 05x and +972 forms verify identically', async () => {
+    it('hashes with the normalized phone, so 05x and +972 forms verify identically', async () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp());
 
       await expect(service.verifyOtp('+972-50-123-4567', '123456')).resolves.toMatchObject({
@@ -254,7 +250,7 @@ describe('AuthService', () => {
       expect(repo.findActiveOtp).toHaveBeenCalledWith(e164);
     });
 
-    it.skip('consumes the code, upserts the coach and signs a token on success', async () => {
+    it('consumes the code, upserts the coach and signs a token on success', async () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp());
       repo.findOrCreateCoach.mockResolvedValue(coachRow({ id: 'coach-42' }));
 
@@ -273,7 +269,7 @@ describe('AuthService', () => {
       });
     });
 
-    it.skip('consumes the code before issuing the token, so it cannot be replayed', async () => {
+    it('consumes the code before issuing the token, so it cannot be replayed', async () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp());
       const order: string[] = [];
       repo.consumeOtp.mockImplementation(async () => void order.push('consume'));
@@ -287,7 +283,7 @@ describe('AuthService', () => {
       expect(order).toEqual(['consume', 'sign']);
     });
 
-    it.skip('never leaks the expected code in the error message', async () => {
+    it('never leaks the expected code in the error message', async () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp());
 
       const error = await service.verifyOtp(phone, '999999').catch((e: unknown) => e);

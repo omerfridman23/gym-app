@@ -12,8 +12,7 @@ import { AuthRepository } from './auth.repository.js';
 import { SMS_PROVIDER, type SmsProvider } from './sms/sms-provider.js';
 
 const OTP_TTL_MS = 10 * 60 * 1000;
-// Belongs to the temporarily disabled verification block in verifyOtp.
-// const OTP_MAX_ATTEMPTS = 5;
+const OTP_MAX_ATTEMPTS = 5;
 const OTP_REQUEST_WINDOW_MS = 15 * 60 * 1000;
 const OTP_REQUESTS_PER_WINDOW = 3;
 
@@ -63,23 +62,20 @@ export class AuthService {
     const phone = this.normalizePhone(rawPhone);
     if (!/^\d{6}$/.test(code ?? '')) throw new UnauthorizedException('קוד שגוי');
 
-    // TODO: OTP verification is temporarily disabled — any 6-digit code logs in.
-    // Uncomment the block below before going to production.
-    //
-    // const otp = await this.repo.findActiveOtp(phone);
-    // if (!otp || otp.attempts >= OTP_MAX_ATTEMPTS) {
-    //   throw new UnauthorizedException('הקוד פג תוקף, בקשו קוד חדש');
-    // }
-    //
-    // if (otp.codeHash !== this.hashCode(phone, code)) {
-    //   const attempts = await this.repo.recordFailedAttempt(otp.id);
-    //   if (attempts >= OTP_MAX_ATTEMPTS) {
-    //     throw new UnauthorizedException('הקוד פג תוקף, בקשו קוד חדש');
-    //   }
-    //   throw new UnauthorizedException('קוד שגוי');
-    // }
-    //
-    // await this.repo.consumeOtp(otp.id);
+    const otp = await this.repo.findActiveOtp(phone);
+    if (!otp || otp.attempts >= OTP_MAX_ATTEMPTS) {
+      throw new UnauthorizedException('הקוד פג תוקף, בקשו קוד חדש');
+    }
+
+    if (otp.codeHash !== this.hashCode(phone, code)) {
+      const attempts = await this.repo.recordFailedAttempt(otp.id);
+      if (attempts >= OTP_MAX_ATTEMPTS) {
+        throw new UnauthorizedException('הקוד פג תוקף, בקשו קוד חדש');
+      }
+      throw new UnauthorizedException('קוד שגוי');
+    }
+
+    await this.repo.consumeOtp(otp.id);
 
     const coach = await this.repo.findOrCreateCoach(phone);
     const token = await this.jwt.signAsync({ sub: coach.id });

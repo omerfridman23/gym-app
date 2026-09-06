@@ -1,7 +1,6 @@
 /**
- * SMS delivery abstraction. The real provider (Twilio / 019 / etc.) is an
- * open product decision (handoff section 7) — swapping one in means adding a
- * class that implements this interface and binding it in AuthModule.
+ * SMS delivery abstraction. Bind `DevSmsProvider` locally and
+ * `TwilioSmsProvider` in production via `createSmsProvider`.
  */
 export const SMS_PROVIDER = 'SMS_PROVIDER';
 

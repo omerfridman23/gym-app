@@ -6,7 +6,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthGuard } from './auth.guard.js';
 import { AuthRepository } from './auth.repository.js';
 import { AuthService } from './auth.service.js';
-import { DevSmsProvider } from './sms/dev-sms.provider.js';
+import { createSmsProvider } from './sms/create-sms-provider.js';
 import { SMS_PROVIDER } from './sms/sms-provider.js';
 
 @Module({
@@ -24,8 +24,7 @@ import { SMS_PROVIDER } from './sms/sms-provider.js';
     AuthService,
     AuthRepository,
     AuthGuard,
-    // Real SMS provider (Twilio / 019 / ...) is an open decision — handoff §7.
-    { provide: SMS_PROVIDER, useClass: DevSmsProvider },
+    { provide: SMS_PROVIDER, inject: [ConfigService], useFactory: createSmsProvider },
   ],
   exports: [AuthService, AuthGuard],
 })
