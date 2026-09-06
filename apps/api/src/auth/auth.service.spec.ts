@@ -56,8 +56,14 @@ describe('AuthService', () => {
   let service: AuthService;
   let config: { get: ReturnType<typeof vi.fn> };
 
-  function makeService(nodeEnv = 'test') {
-    config = { get: vi.fn((key: string) => (key === 'NODE_ENV' ? nodeEnv : undefined)) };
+  function makeService(nodeEnv = 'test', devLoginEnabled?: string) {
+    config = {
+      get: vi.fn((key: string) => {
+        if (key === 'NODE_ENV') return nodeEnv;
+        if (key === 'DEV_LOGIN_ENABLED') return devLoginEnabled;
+        return undefined;
+      }),
+    };
     return new AuthService(
       repo as unknown as AuthRepository,
       jwt as unknown as JwtService,
@@ -188,6 +194,12 @@ describe('AuthService', () => {
     it('still rejects 1111 in production', async () => {
       service = makeService('production');
       await expect(service.requestOtp('1111')).rejects.toThrow(BadRequestException);
+      expect(sms.sendOtp).not.toHaveBeenCalled();
+    });
+
+    it('allows 1111 in production when explicitly enabled', async () => {
+      service = makeService('production', 'true');
+      await expect(service.requestOtp('1111')).resolves.toBeUndefined();
       expect(sms.sendOtp).not.toHaveBeenCalled();
     });
 
@@ -338,6 +350,14 @@ describe('AuthService', () => {
       service = makeService('production');
       await expect(service.verifyOtp('0501234567', '1111')).rejects.toThrow(UnauthorizedException);
       expect(repo.findOrCreateDevCoach).not.toHaveBeenCalled();
+    });
+
+    it('accepts the 1111 shortcut in production when explicitly enabled', async () => {
+      service = makeService('production', 'true');
+      await expect(service.verifyOtp('1111', '1111')).resolves.toMatchObject({
+        token: 'signed.jwt.token',
+        coach: { name: DEV_COACH_NAME, onboarded: true },
+      });
     });
 
     it('never leaks the expected code in the error message', async () => {

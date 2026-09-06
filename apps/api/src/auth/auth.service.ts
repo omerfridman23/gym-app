@@ -36,7 +36,10 @@ export class AuthService {
   ) {}
 
   private isDevLogin(rawPhone: string, code?: string): boolean {
-    if (this.config.get('NODE_ENV') === 'production') return false;
+    const enabled =
+      this.config.get('NODE_ENV') !== 'production' ||
+      this.config.get<string>('DEV_LOGIN_ENABLED') === 'true';
+    if (!enabled) return false;
     const phone = (rawPhone ?? '').replace(/[\s-]/g, '');
     return phone === DEV_LOGIN_CODE || code === DEV_LOGIN_CODE;
   }
