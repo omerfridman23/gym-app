@@ -87,7 +87,7 @@ export default function LoginPage() {
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 inputMode="tel"
                 autoComplete="tel"
-                placeholder="050-0000000 או 1111"
+                placeholder="050-0000000"
                 dir="ltr"
                 className="w-full rounded-2xl border border-line bg-card px-4 py-3.5 text-left text-lg tracking-wide text-ink outline-none transition focus:border-court focus:ring-4 focus:ring-court-tint"
               />
