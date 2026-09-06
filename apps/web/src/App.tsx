@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
 import { AuthProvider, useAuth } from '@/lib/auth-context'
+import { DataProvider, useData } from '@/lib/data'
 import { VerticalProvider } from '@/lib/vertical-context'
 import { AppLayout } from '@/layouts/app-layout'
 import TodayPage from '@/pages/today'
@@ -24,6 +25,7 @@ function Splash() {
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { coach } = useAuth()
+  const { ready } = useData()
   const location = useLocation()
 
   if (coach === undefined) return <Splash />
@@ -31,6 +33,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!coach.onboarded && location.pathname !== '/onboarding') {
     return <Navigate to="/onboarding" replace />
   }
+  // Authenticated + onboarded: wait for the real dataset before rendering.
+  if (coach.onboarded && !ready) return <Splash />
   return <>{children}</>
 }
 
@@ -46,7 +50,8 @@ export default function App() {
   return (
     <VerticalProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <DataProvider>
+          <BrowserRouter>
           <Routes>
             {/* Public pages (client-facing, token links) */}
             <Route path="/confirm/:id" element={<ConfirmPage />} />
@@ -85,7 +90,8 @@ export default function App() {
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Routes>
-        </BrowserRouter>
+          </BrowserRouter>
+        </DataProvider>
       </AuthProvider>
     </VerticalProvider>
   )

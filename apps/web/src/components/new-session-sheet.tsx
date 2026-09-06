@@ -19,7 +19,7 @@ export function NewSessionSheet({
   onClose: () => void
   presetDate?: string
   presetTime?: string
-  onCreate: (session: Session) => void
+  onCreate: (session: Session, repeatWeekly: boolean) => void
 }) {
   const { ds, config, todayISO } = useData()
   const [query, setQuery] = useState('')
@@ -68,7 +68,7 @@ export function NewSessionSheet({
       reminderSent: false,
       reminderAnswered: false,
     }
-    onCreate(session)
+    onCreate(session, repeat)
     reset()
     onClose()
   }

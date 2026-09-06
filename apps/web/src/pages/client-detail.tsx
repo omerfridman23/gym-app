@@ -25,8 +25,7 @@ import { PAYMENT_METHODS, type PaymentMethod, type Session } from '@/lib/mock-da
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const { ds, config, today } = useData()
-  const [paidIds, setPaidIds] = useState<Set<string>>(new Set())
+  const { ds, config, today, actions } = useData()
   const [payOpen, setPayOpen] = useState(false)
   const [method, setMethod] = useState<PaymentMethod>('bit')
 
@@ -51,11 +50,9 @@ export default function ClientDetailPage() {
   }
 
   const pkg = packageFor(ds, client)
-  const rawOwed = outstandingFor(ds, client.id)
+  const owed = outstandingFor(ds, client.id)
   const unpaid = unpaidSessions(ds, client.id)
-  const settledHere = unpaid.filter((s) => paidIds.has(s.id)).reduce((sum, s) => sum + s.priceAgorot, 0)
-  const owed = rawOwed - settledHere
-  const owedCount = unpaid.filter((s) => !paidIds.has(s.id)).length
+  const owedCount = unpaid.length
 
   const debtText = fillTemplate(ds.settings.templates.debt, {
     שם: client.name.split(' ')[0],
@@ -180,7 +177,7 @@ export default function ClientDetailPage() {
           </p>
           <ul className="divide-y divide-line/70 overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-line/60">
             {history.map((s) => (
-              <HistoryRow key={s.id} session={s} paid={s.paid || paidIds.has(s.id)} todayLabel={daysAgoLabel(s.date, today)} />
+              <HistoryRow key={s.id} session={s} paid={s.paid} todayLabel={daysAgoLabel(s.date, today)} />
             ))}
             {history.length === 0 ? (
               <li className="px-3 py-4 text-center text-sm text-muted">אין היסטוריה עדיין</li>
@@ -219,7 +216,7 @@ export default function ClientDetailPage() {
           <button
             type="button"
             onClick={() => {
-              setPaidIds((prev) => new Set([...prev, ...unpaid.map((s) => s.id)]))
+              void actions.recordPayment(client.id, owed, method, unpaid.map((s) => s.id))
               setPayOpen(false)
             }}
             className="w-full rounded-2xl bg-court-gradient py-4 text-base font-bold text-white shadow-md transition active:scale-[0.98]"

@@ -7,7 +7,6 @@ import { AppHeader } from '@/components/app-header'
 import { InitialsAvatar } from '@/components/initials-avatar'
 import { useData, totalOutstanding } from '@/lib/data'
 import { fromISODate, formatShekel, MONTHS_HE } from '@/lib/format'
-import type { Session } from '@/lib/mock-data'
 
 type Range = 'month' | 'week' | 'all'
 

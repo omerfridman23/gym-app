@@ -13,20 +13,15 @@ import { waLink } from '@/lib/whatsapp'
 import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/mock-data'
 
 export default function DebtsPage() {
-  const { ds, today, config } = useData()
-  const [settled, setSettled] = useState<Set<string>>(new Set())
+  const { ds, today, config, actions } = useData()
   const [payFor, setPayFor] = useState<Debtor | null>(null)
   const [method, setMethod] = useState<PaymentMethod>('bit')
+  // Amount collected in this screen visit (for the "collected" banner).
+  const [totalCollected, setTotalCollected] = useState(0)
 
-  const list = useMemo(
-    () => debtors(ds).filter((d) => !settled.has(d.client.id)),
-    [ds, settled],
-  )
+  const list = useMemo(() => debtors(ds), [ds])
 
   const total = list.reduce((sum, d) => sum + d.amount, 0)
-  const totalCollected = debtors(ds)
-    .filter((d) => settled.has(d.client.id))
-    .reduce((sum, d) => sum + d.amount, 0)
 
   const debtMessage = (d: Debtor) =>
     fillTemplate(ds.settings.templates.debt, {
@@ -162,7 +157,13 @@ export default function DebtsPage() {
             <button
               type="button"
               onClick={() => {
-                setSettled((prev) => new Set([...prev, payFor.client.id]))
+                void actions.recordPayment(
+                  payFor.client.id,
+                  payFor.amount,
+                  method,
+                  payFor.sessions.map((s) => s.id),
+                )
+                setTotalCollected((sum) => sum + payFor.amount)
                 setPayFor(null)
               }}
               className="w-full rounded-2xl bg-court-gradient py-4 text-base font-bold text-white shadow-md transition active:scale-[0.98]"

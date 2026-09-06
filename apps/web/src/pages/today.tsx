@@ -13,21 +13,11 @@ import { formatHebrewDate } from '@/lib/format'
 import type { Session } from '@/lib/mock-data'
 
 export default function TodayPage() {
-  const { ds, todayISO, config } = useData()
-  const [overrides, setOverrides] = useState<Record<string, Partial<Session>>>({})
-  const [added, setAdded] = useState<Session[]>([])
+  const { ds, todayISO, config, actions } = useData()
   const [openId, setOpenId] = useState<string | null>(null)
   const [newOpen, setNewOpen] = useState(false)
 
-  const sessions = useMemo(() => {
-    const base = sessionsOn(ds, todayISO)
-    const extra = added.filter(
-      (s) => s.date === todayISO && ds.clients.some((c) => c.id === s.clientId),
-    )
-    return [...base, ...extra]
-      .map((s) => ({ ...s, ...overrides[s.id] }))
-      .sort((a, b) => (a.time < b.time ? -1 : 1))
-  }, [ds, todayISO, added, overrides])
+  const sessions = useMemo(() => sessionsOn(ds, todayISO), [ds, todayISO])
 
   const active = sessions.filter((s) => s.status !== 'cancelled')
   const confirmed = active.filter((s) => s.status === 'confirmed' || s.status === 'done').length
@@ -36,8 +26,10 @@ export default function TodayPage() {
   const openSession = sessions.find((s) => s.id === openId) ?? null
   const openClient = openSession ? clientById(ds, openSession.clientId) ?? null : null
 
-  const patch = (id: string, data: Partial<Session>) =>
-    setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...data } }))
+  const markPaid = (session: Session) => {
+    if (session.priceAgorot <= 0) return
+    void actions.recordPayment(session.clientId, session.priceAgorot, 'cash', [session.id])
+  }
 
   return (
     <>
@@ -100,15 +92,17 @@ export default function TodayPage() {
         client={openClient}
         open={openId !== null}
         onClose={() => setOpenId(null)}
-        onConfirm={(id) => patch(id, { status: 'confirmed', reminderAnswered: true })}
-        onMarkPaid={(id) => patch(id, { paid: true })}
-        onCancel={(id, reason) => patch(id, { status: 'cancelled', cancelReason: reason })}
+        onConfirm={(id) => void actions.updateSession(id, { status: 'confirmed' })}
+        onMarkPaid={() => openSession && markPaid(openSession)}
+        onCancel={(id, reason) =>
+          void actions.updateSession(id, { status: 'cancelled', cancelReason: reason })
+        }
       />
 
       <NewSessionSheet
         open={newOpen}
         onClose={() => setNewOpen(false)}
-        onCreate={(s) => setAdded((prev) => [...prev, s])}
+        onCreate={(s, repeatWeekly) => void actions.addSession(s, repeatWeekly)}
       />
     </>
   )

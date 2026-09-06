@@ -54,7 +54,162 @@ export interface UpdateCoachInput {
   defaultPriceAgorot?: number;
   reminderHoursBefore?: number;
   cancellationPolicy?: string;
+  templates?: { reminder?: string; debt?: string };
 }
+
+export interface CoachProfile {
+  id: string;
+  phone: string;
+  name: string;
+  vertical: 'padel' | 'fitness' | null;
+  defaultPriceAgorot: number;
+  reminderHoursBefore: number;
+  cancellationPolicy: string;
+  templates: { reminder?: string; debt?: string };
+  onboarded: boolean;
+}
+
+// --- Raw API row shapes (dates are ISO strings, money is agorot) ---
+
+export interface ApiClient {
+  id: string;
+  name: string;
+  phone: string;
+  fields: Record<string, string>;
+  priceAgorot: number;
+}
+
+export interface ApiSession {
+  id: string;
+  clientId: string;
+  seriesId: string | null;
+  typeId: string;
+  startsAt: string;
+  durationMin: number;
+  location: string | null;
+  priceAgorot: number;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'done';
+  paid: boolean;
+  packageId: string | null;
+  reminderSent: boolean;
+  reminderAnswered: boolean;
+  attendance: 'arrived' | 'no_show' | null;
+  cancelReason: string | null;
+}
+
+export interface ApiPayment {
+  id: string;
+  clientId: string;
+  amountAgorot: number;
+  method: 'cash' | 'bit' | 'transfer' | 'card';
+  paidAt: string;
+}
+
+export interface ApiPackage {
+  id: string;
+  clientId: string;
+  totalSessions: number;
+  purchasedAgorot: number;
+  purchasedAt: string;
+  remaining: number;
+}
+
+export interface CreateSessionInput {
+  clientId: string;
+  typeId: string;
+  startsAt: string;
+  durationMin: number;
+  location?: string;
+  priceAgorot: number;
+  repeatWeekly?: boolean;
+}
+
+export interface UpdateSessionInput {
+  status?: 'pending' | 'confirmed' | 'cancelled' | 'done';
+  cancelReason?: string | null;
+  paid?: boolean;
+  attendance?: 'arrived' | 'no_show' | null;
+  reminderSent?: boolean;
+  reminderAnswered?: boolean;
+}
+
+export const dataApi = {
+  async getProfile(): Promise<CoachProfile> {
+    const { coach } = await request<{ coach: CoachProfile }>('/coaches/me');
+    return coach;
+  },
+
+  async updateProfile(input: UpdateCoachInput): Promise<CoachProfile> {
+    const { profile } = await request<{ profile: CoachProfile }>('/coaches/me', {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+    return profile;
+  },
+
+  async listClients(): Promise<ApiClient[]> {
+    const { clients } = await request<{ clients: ApiClient[] }>('/clients');
+    return clients;
+  },
+
+  async createClient(input: {
+    name: string;
+    phone: string;
+    fields: Record<string, string>;
+    priceAgorot: number;
+  }): Promise<ApiClient> {
+    const { client } = await request<{ client: ApiClient }>('/clients', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    return client;
+  },
+
+  async listSessions(fromIso: string, toIso: string): Promise<ApiSession[]> {
+    const query = new URLSearchParams({ from: fromIso, to: toIso });
+    const { sessions } = await request<{ sessions: ApiSession[] }>(`/sessions?${query}`);
+    return sessions;
+  },
+
+  async createSession(input: CreateSessionInput): Promise<ApiSession[]> {
+    const { sessions } = await request<{ sessions: ApiSession[] }>('/sessions', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    return sessions;
+  },
+
+  async updateSession(id: string, input: UpdateSessionInput): Promise<ApiSession> {
+    const { session } = await request<{ session: ApiSession }>(`/sessions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+    return session;
+  },
+
+  async listPayments(): Promise<ApiPayment[]> {
+    const { payments } = await request<{ payments: ApiPayment[] }>('/payments');
+    return payments;
+  },
+
+  async createPayment(input: {
+    clientId: string;
+    amountAgorot: number;
+    method: 'cash' | 'bit' | 'transfer' | 'card';
+    sessionIds?: string[];
+  }): Promise<ApiPayment> {
+    const { payment } = await request<{ payment: ApiPayment }>('/payments', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    return payment;
+  },
+
+  async listPackages(): Promise<ApiPackage[]> {
+    const { packages } = await request<{ packages: ApiPackage[] }>('/packages');
+    return packages;
+  },
+};
 
 export const authApi = {
   requestOtp(phone: string): Promise<void> {

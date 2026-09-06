@@ -119,14 +119,48 @@ SMS OTP → JWT in an httpOnly cookie (`coach_session`, 30 days).
   returns the coach session.
 - `GET /api/auth/me` — session probe (RLS-scoped read).
 - `POST /api/auth/logout` — clears the cookie.
+- `GET /api/coaches/me` — full coach profile (settings + message templates).
 - `PATCH /api/coaches/me` — profile/onboarding update (`name`, `vertical`,
-  `default_price_agorot`, ...). Setting `vertical` for the first time stamps
-  `onboarded_at`.
+  `default_price_agorot`, `templates`, ...). Setting `vertical` for the first
+  time stamps `onboarded_at`.
+
+## Data API (all RLS-scoped via `withCoach`, cookie auth required)
+
+- `GET/POST /api/clients`, `PATCH /api/clients/:id`, `DELETE /api/clients/:id`
+  (soft delete — sets `deleted_at`).
+- `GET /api/sessions?from&to` — range list. `POST /api/sessions` — create; with
+  `repeatWeekly: true` also creates a `session_series` and materializes 12
+  weekly instances. `PATCH /api/sessions/:id` — status / paid / attendance /
+  cancel-reason / reminder flags (confirming implies `reminder_answered`).
+- `GET/POST /api/payments` — `POST` takes optional `sessionIds` and marks those
+  sessions `paid` in the same transaction (this is how "סמן כשולם" works, so
+  the `client_debt` view stays consistent).
+- `GET/POST /api/packages` — list includes computed `remaining`.
+
+### Frontend data layer
+
+`DataProvider` (`apps/web/src/lib/data.tsx`) loads the coach's dataset after
+login (profile, clients, sessions ±1y/+120d window, packages, payments) and
+maps API rows to the UI shapes the screens were built on (`startsAt` UTC ↔
+local `date`/`time` strings). Mutations (`addClient`, `addSession`,
+`updateSession`, `recordPayment`, `saveSettings`) call the API and update local
+state. A confirmed session whose end time has passed is displayed as `done`
+(debt accrues) without a DB write.
 
 SMS delivery is behind the `SmsProvider` interface (`SMS_PROVIDER` token).
-`DevSmsProvider` logs the code to the API console; the real provider (Twilio /
-019 / ...) is an open product decision — implement the interface and rebind in
-`AuthModule`.
+`createSmsProvider` picks the driver from `SMS_DRIVER` (default: `019` in
+production, `dev` locally):
+
+- `019` — `Sms019Provider`, the Israeli 019 gateway (JSON API, Bearer token).
+  Required env: `SMS_019_USERNAME`, `SMS_019_TOKEN`, `SMS_019_SOURCE` (sender ID,
+  ≤11 chars). Phones are converted from E.164 to local `05XXXXXXXX`.
+- `twilio` — `TwilioSmsProvider` (Twilio Messages API). Required env:
+  `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
+- `dev` — `DevSmsProvider`, logs the code to the API console.
+
+All providers send the 6-digit code we generate ourselves; we do not use a
+provider-hosted verify service. In production the factory throws on startup if
+the selected driver's credentials are missing.
 
 Cookie: `SameSite=Lax` in dev (localhost ports are same-site), `SameSite=None;
 Secure` in production (web and api are different Railway domains).
@@ -158,10 +192,13 @@ The coach's stored `vertical` is synced into `VerticalProvider` on login.
 
 ## Current status
 
-- ✅ Phase 1: v0 UI ported (mock data still drives all app screens).
+- ✅ Phase 1: v0 UI ported.
 - ✅ Phase 2: schema + RLS + views on Neon dev branch
   (`dev/coach-management-foundation`); SMS OTP auth + onboarding wired
   end-to-end.
-- ⏭ Phase 3+: replace mock data with real API modules (clients, sessions,
-  payments, packages), reminders worker, public confirm/pay pages against real
-  tokens.
+- ✅ Phase 3: mock data removed — clients, sessions, payments, packages, and
+  settings run against the real API/database (create client & session,
+  weekly-recurring series, confirm/cancel, mark paid, debts, reports).
+- ⏭ Phase 4+: reminders worker, public confirm/pay pages against real tokens
+  (`lib/public.ts` currently returns "not found"), deploy migration to Neon
+  main + Railway.

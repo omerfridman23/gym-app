@@ -18,28 +18,20 @@ import {
 import type { Session } from '@/lib/mock-data'
 
 export default function CalendarPage() {
-  const { ds, todayISO, config } = useData()
+  const { ds, todayISO, config, actions } = useData()
   const [weekStart, setWeekStart] = useState(() => startOfWeek(fromISODate(todayISO)))
   const [selectedISO, setSelectedISO] = useState(todayISO)
-  const [overrides, setOverrides] = useState<Record<string, Partial<Session>>>({})
-  const [added, setAdded] = useState<Session[]>([])
   const [openId, setOpenId] = useState<string | null>(null)
   const [newOpen, setNewOpen] = useState(false)
 
   const days = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
       const iso = toISODate(addDays(weekStart, i))
-      const base = sessionsOn(ds, iso)
-      const extra = added.filter(
-        (s) => s.date === iso && ds.clients.some((c) => c.id === s.clientId),
-      )
-      const all = [...base, ...extra]
-        .map((s) => ({ ...s, ...overrides[s.id] }))
-        .sort((a, b) => (a.time < b.time ? -1 : 1))
+      const all = sessionsOn(ds, iso)
       const activeCount = all.filter((s) => s.status !== 'cancelled').length
       return { iso, sessions: all, activeCount }
     })
-  }, [ds, weekStart, added, overrides])
+  }, [ds, weekStart])
 
   const selectedDay = days.find((d) => d.iso === selectedISO)
   const selectedSessions = selectedDay?.sessions ?? []
@@ -47,8 +39,10 @@ export default function CalendarPage() {
   const openSession = selectedSessions.find((s) => s.id === openId) ?? null
   const openClient = openSession ? clientById(ds, openSession.clientId) ?? null : null
 
-  const patch = (id: string, data: Partial<Session>) =>
-    setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...data } }))
+  const markPaid = (session: Session) => {
+    if (session.priceAgorot <= 0) return
+    void actions.recordPayment(session.clientId, session.priceAgorot, 'cash', [session.id])
+  }
 
   const shiftWeek = (dir: number) => {
     const next = addDays(weekStart, dir * 7)
@@ -195,16 +189,18 @@ export default function CalendarPage() {
         client={openClient}
         open={openId !== null}
         onClose={() => setOpenId(null)}
-        onConfirm={(id) => patch(id, { status: 'confirmed', reminderAnswered: true })}
-        onMarkPaid={(id) => patch(id, { paid: true })}
-        onCancel={(id, reason) => patch(id, { status: 'cancelled', cancelReason: reason })}
+        onConfirm={(id) => void actions.updateSession(id, { status: 'confirmed' })}
+        onMarkPaid={() => openSession && markPaid(openSession)}
+        onCancel={(id, reason) =>
+          void actions.updateSession(id, { status: 'cancelled', cancelReason: reason })
+        }
       />
 
       <NewSessionSheet
         open={newOpen}
         onClose={() => setNewOpen(false)}
         presetDate={selectedISO}
-        onCreate={(s) => setAdded((prev) => [...prev, s])}
+        onCreate={(s, repeatWeekly) => void actions.addSession(s, repeatWeekly)}
       />
     </>
   )

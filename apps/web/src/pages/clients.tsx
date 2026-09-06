@@ -8,24 +8,23 @@ import { InitialsAvatar } from '@/components/initials-avatar'
 import { NewClientSheet } from '@/components/new-client-sheet'
 import { outstandingFor, packageFor, useData } from '@/lib/data'
 import { formatShekel } from '@/lib/format'
-import type { Client } from '@/lib/mock-data'
 
 export default function ClientsPage() {
-  const { ds, config } = useData()
+  const { ds, config, actions } = useData()
   const [query, setQuery] = useState('')
-  const [added, setAdded] = useState<Client[]>([])
   const [newOpen, setNewOpen] = useState(false)
 
   const clients = useMemo(() => {
-    const all = [...ds.clients, ...added]
     const q = query.trim()
-    const filtered = q ? all.filter((c) => c.name.includes(q) || c.phone.includes(q)) : all
+    const filtered = q
+      ? ds.clients.filter((c) => c.name.includes(q) || c.phone.includes(q))
+      : ds.clients
     return [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'he'))
-  }, [ds.clients, added, query])
+  }, [ds.clients, query])
 
   return (
     <>
-      <AppHeader title={config.terms.clients} subtitle={`${ds.clients.length + added.length} ${config.terms.clients}`} />
+      <AppHeader title={config.terms.clients} subtitle={`${ds.clients.length} ${config.terms.clients}`} />
 
       <div className="flex-1 overflow-y-auto">
         <div className="sticky top-0 z-10 bg-paper/80 px-5 pb-2 pt-1 backdrop-blur-xl">
@@ -90,7 +89,7 @@ export default function ClientsPage() {
       <NewClientSheet
         open={newOpen}
         onClose={() => setNewOpen(false)}
-        onCreate={(c) => setAdded((prev) => [...prev, c])}
+        onCreate={(c) => void actions.addClient(c)}
       />
     </>
   )

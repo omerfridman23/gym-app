@@ -4,16 +4,21 @@ import { useState } from 'react'
 import { Bell, ClipboardList, MessageSquareText, User, Wallet } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { useData } from '@/lib/data'
+import type { UpdateCoachInput } from '@/lib/api'
 import { formatShekel } from '@/lib/format'
 
 export default function SettingsPage() {
-  const { ds, config, vertical } = useData()
+  const { ds, config, vertical, actions } = useData()
   const s = ds.settings
   const [saved, setSaved] = useState(false)
 
   const flash = () => {
     setSaved(true)
     window.setTimeout(() => setSaved(false), 1600)
+  }
+
+  const save = (patch: UpdateCoachInput) => {
+    void actions.saveSettings(patch).then(flash)
   }
 
   return (
@@ -26,7 +31,7 @@ export default function SettingsPage() {
           <Field label="שם המאמן">
             <input
               defaultValue={s.name}
-              onBlur={flash}
+              onBlur={(e) => e.target.value.trim() !== s.name && save({ name: e.target.value.trim() })}
               className="w-full rounded-sm bg-transparent text-left text-ink outline-none ltr-nums"
               dir="rtl"
             />
@@ -61,7 +66,10 @@ export default function SettingsPage() {
           <div className="px-4 py-3">
             <textarea
               defaultValue={s.cancellationPolicy}
-              onBlur={flash}
+              onBlur={(e) =>
+                e.target.value !== s.cancellationPolicy &&
+                save({ cancellationPolicy: e.target.value })
+              }
               rows={3}
               dir="rtl"
               className="w-full resize-none rounded-sm bg-transparent text-sm leading-relaxed text-ink outline-none"
@@ -71,8 +79,16 @@ export default function SettingsPage() {
 
         {/* Templates */}
         <Section icon={<MessageSquareText className="size-4" />} title="תבניות הודעה">
-          <TemplateField label="תזכורת לאימון" value={s.templates.reminder} onSave={flash} />
-          <TemplateField label="תזכורת חוב" value={s.templates.debt} onSave={flash} />
+          <TemplateField
+            label="תזכורת לאימון"
+            value={s.templates.reminder}
+            onSave={(v) => save({ templates: { reminder: v } })}
+          />
+          <TemplateField
+            label="תזכורת חוב"
+            value={s.templates.debt}
+            onSave={(v) => save({ templates: { debt: v } })}
+          />
           <p className="px-4 pb-3 pt-1 text-xs leading-relaxed text-muted">
             {'ניתן להשתמש במשתנים: '}
             <code className="rounded bg-court-tint px-1 text-court">{'{שם}'}</code>{' '}
@@ -178,14 +194,14 @@ function TemplateField({
 }: {
   label: string
   value: string
-  onSave?: () => void
+  onSave?: (value: string) => void
 }) {
   return (
     <div className="px-4 py-3">
       <label className="mb-1.5 block text-sm font-medium text-ink">{label}</label>
       <textarea
         defaultValue={value}
-        onBlur={onSave}
+        onBlur={(e) => e.target.value !== value && onSave?.(e.target.value)}
         rows={2}
         dir="rtl"
         className="w-full resize-none rounded-xl bg-surface-2 p-3 text-sm font-medium leading-relaxed text-ink outline-none ring-1 ring-line/60 transition focus:ring-2 focus:ring-court"

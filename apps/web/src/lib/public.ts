@@ -1,5 +1,9 @@
-import { DATASETS, type Client, type Dataset, type Session } from './mock-data'
-import { isUnpaidDebt } from './data'
+import type { Client, Dataset, Session } from './mock-data'
+
+// Public token pages (/confirm/:id, /pay/:id) are client-facing links that
+// must work without a coach login. They previously ran on mock data; the real
+// token-based public API is not built yet, so lookups return "not found" and
+// the pages show their expired-link state.
 
 export interface PublicClientInfo {
   dataset: Dataset
@@ -7,31 +11,16 @@ export interface PublicClientInfo {
   coachName: string
 }
 
-/** Find a client by id across every vertical dataset (public links have no vertical context). */
-export function findClientAnywhere(id: string): PublicClientInfo | undefined {
-  for (const dataset of Object.values(DATASETS)) {
-    const client = dataset.clients.find((c) => c.id === id)
-    if (client) return { dataset, client, coachName: dataset.settings.name }
-  }
+export function findClientAnywhere(_id: string): PublicClientInfo | undefined {
   return undefined
 }
 
-/** Find a session by id across every vertical dataset. */
 export function findSessionAnywhere(
-  id: string,
+  _id: string,
 ): { dataset: Dataset; session: Session; client?: Client; coachName: string } | undefined {
-  for (const dataset of Object.values(DATASETS)) {
-    const session = dataset.sessions.find((s) => s.id === id)
-    if (session) {
-      const client = dataset.clients.find((c) => c.id === session.clientId)
-      return { dataset, session, client, coachName: dataset.settings.name }
-    }
-  }
   return undefined
 }
 
-export function publicUnpaid(dataset: Dataset, clientId: string): Session[] {
-  return dataset.sessions
-    .filter((s) => s.clientId === clientId && isUnpaidDebt(s))
-    .sort((a, b) => (a.date < b.date ? 1 : -1))
+export function publicUnpaid(_dataset: Dataset, _clientId: string): Session[] {
+  return []
 }
