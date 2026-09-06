@@ -1,6 +1,6 @@
 export const VERTICAL_CONFIG = {
   padel: {
-    terms: { client: 'שחקן', clients: 'שחקנים', session: 'אימון', location: 'מגרש', calendar: 'יומן' },
+    terms: { client: 'שחקן', clients: 'שחקנים', session: 'אימון', sessions: 'אימונים', location: 'מגרש', calendar: 'יומן' },
     sessionTypes: [
       { id: 'private', label: 'פרטי', capacity: 1 },
       { id: 'duo', label: 'זוגי', capacity: 2 },
@@ -25,7 +25,7 @@ export const VERTICAL_CONFIG = {
     requiresLocation: true,
   },
   fitness: {
-    terms: { client: 'מתאמן', clients: 'מתאמנים', session: 'אימון', location: 'מיקום', calendar: 'יומן' },
+    terms: { client: 'מתאמן', clients: 'מתאמנים', session: 'אימון', sessions: 'אימונים', location: 'מיקום', calendar: 'יומן' },
     sessionTypes: [
       { id: 'private', label: 'אישי', capacity: 1 },
       { id: 'duet', label: 'זוגי', capacity: 2 },

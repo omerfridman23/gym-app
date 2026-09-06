@@ -174,7 +174,7 @@ export default function ClientDetailPage() {
         {/* History */}
         <section className="pt-5">
           <p className="mb-2 ps-1 text-sm font-bold text-muted">
-            היסטוריית {config.terms.session}ים · {history.length}
+            היסטוריית {config.terms.sessions} · {history.length}
           </p>
           <ul className="divide-y divide-line/70 overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-line/60">
             {history.map((s) => (

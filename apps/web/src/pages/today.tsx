@@ -55,7 +55,7 @@ export default function TodayPage() {
 
         {sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-            <p className="text-lg font-bold text-ink">אין {config.terms.session}ים היום</p>
+            <p className="text-lg font-bold text-ink">אין {config.terms.sessions} היום</p>
             <p className="mt-1 text-sm text-muted">יום חופשי. אפשר להוסיף {config.terms.session} חדש.</p>
           </div>
         ) : (

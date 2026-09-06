@@ -127,7 +127,7 @@ export default function ReportsPage() {
             {formatShekel(stats.revenue)}
           </p>
           <p className="mt-2 text-sm font-medium text-white/85">
-            {stats.sessionCount} {config.terms.session === 'אימון' ? 'אימונים' : config.terms.session} בוצעו
+            {stats.sessionCount} {config.terms.sessions} בוצעו
           </p>
         </section>
 

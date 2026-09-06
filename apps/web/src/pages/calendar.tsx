@@ -142,14 +142,14 @@ export default function CalendarPage() {
           <p className="text-sm font-bold text-ink">{formatHebrewDate(selectedISO)}</p>
           <p className="text-sm font-medium text-muted">
             {selectedDay && selectedDay.activeCount > 0
-              ? `${selectedDay.activeCount} ${config.terms.session}ים`
+              ? `${selectedDay.activeCount} ${config.terms.sessions}`
               : 'אין אימונים'}
           </p>
         </div>
 
         {selectedSessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <p className="text-base font-bold text-ink">אין {config.terms.session}ים ביום זה</p>
+            <p className="text-base font-bold text-ink">אין {config.terms.sessions} ביום זה</p>
             <button
               type="button"
               onClick={() => setNewOpen(true)}
