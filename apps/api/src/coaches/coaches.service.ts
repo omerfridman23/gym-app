@@ -149,7 +149,7 @@ export class CoachesService {
       // Booking fields are validated against the *resulting* state, so a
       // partial PATCH can't enable the page without a slug or invert the
       // work-hour window.
-      const nextSlug =
+      let nextSlug =
         input.bookingSlug !== undefined
           ? sanitizeSlug(input.bookingSlug)
           : existing.bookingSlug;
@@ -164,6 +164,13 @@ export class CoachesService {
               return input.bookingEnabled;
             })()
           : existing.bookingEnabled;
+      const generatedSlug =
+        nextEnabled &&
+        !nextSlug &&
+        input.bookingSlug === undefined;
+      if (generatedSlug) {
+        nextSlug = `coach-${coachId.replaceAll('-', '').slice(0, 12)}`;
+      }
       const nextStartHour =
         input.bookingStartHour !== undefined
           ? sanitizeHour(input.bookingStartHour)
@@ -208,7 +215,9 @@ export class CoachesService {
                 ...sanitizeTemplates(input.templates),
               },
             }),
-            ...(input.bookingSlug !== undefined && { bookingSlug: nextSlug }),
+            ...((input.bookingSlug !== undefined || generatedSlug) && {
+              bookingSlug: nextSlug,
+            }),
             ...(input.bookingEnabled !== undefined && {
               bookingEnabled: nextEnabled,
             }),

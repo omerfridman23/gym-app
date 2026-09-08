@@ -1,12 +1,13 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import {
   Bell,
   CalendarCheck2,
   ClipboardList,
   Copy,
+  ExternalLink,
   LogOut,
   MessageCircle,
   MessageSquareText,
@@ -173,19 +174,21 @@ export default function SettingsPage() {
  */
 function BookingSection({ settings, onFlash }: { settings: CoachSettings; onFlash: () => void }) {
   const { actions } = useData()
-  const [slug, setSlug] = useState(settings.bookingSlug ?? '')
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const enablingFromSlug = useRef(false)
+  const [saving, setSaving] = useState(false)
 
   const link = settings.bookingSlug ? `${window.location.origin}/book/${settings.bookingSlug}` : null
+  const active = settings.bookingEnabled && Boolean(link)
 
   const save = (patch: UpdateCoachInput) => {
     setError(null)
+    setSaving(true)
     actions
       .saveSettings(patch)
       .then(onFlash)
       .catch((err) => setError(err instanceof ApiError ? err.message : 'השמירה נכשלה, נסו שוב'))
+      .finally(() => setSaving(false))
   }
 
   const shareMessage = link
@@ -194,52 +197,46 @@ function BookingSection({ settings, onFlash }: { settings: CoachSettings; onFlas
 
   return (
     <Section icon={<CalendarCheck2 className="size-4" />} title="קביעת תורים אונליין">
-      <div className="px-4 py-3">
-        <label htmlFor="booking-slug" className="mb-1.5 block text-sm font-medium text-ink">
-          כתובת הקישור שלך
-        </label>
-        <div className="flex items-center gap-2" dir="ltr">
-          <span className="shrink-0 text-xs font-medium text-muted">
-            {window.location.origin}/book/
-          </span>
-          <input
-            id="booking-slug"
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            onBlur={() => {
-              // Clicking the toggle fires blur before click. The toggle sends
-              // slug+enabled together, avoiding two racing profile PATCHes.
-              if (enablingFromSlug.current) return
-              const next = slug.trim().toLowerCase()
-              if (next !== (settings.bookingSlug ?? '')) save({ bookingSlug: next || null })
-            }}
-            placeholder="dana"
-            dir="ltr"
-            className="w-full rounded-xl bg-surface-2 px-3 py-2 text-left text-sm font-medium text-ink outline-none ring-1 ring-line/60 transition focus:ring-2 focus:ring-court"
-          />
+      <div className="px-4 py-4">
+        <div
+          className={`rounded-2xl p-4 ring-1 ${
+            active ? 'bg-paid-tint ring-paid/20' : 'bg-surface-2 ring-line/60'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={`size-2.5 rounded-full ${active ? 'bg-paid' : 'bg-muted/50'}`}
+              aria-hidden="true"
+            />
+            <p className={`font-bold ${active ? 'text-paid' : 'text-ink'}`}>
+              {active ? 'הקישור פעיל ומוכן לשיתוף' : 'הקישור כבוי'}
+            </p>
+          </div>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            {active
+              ? 'לקוחות יכולים לראות שעות פנויות ולקבוע אימון לבד.'
+              : 'הפעילו פעם אחת — אנחנו ניצור את הקישור בשבילכם.'}
+          </p>
+          {active && link ? (
+            <a
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center gap-2 rounded-xl bg-surface px-3 py-2.5 text-sm font-semibold text-ink ring-1 ring-line/60"
+              dir="ltr"
+            >
+              <span className="min-w-0 flex-1 truncate">{link}</span>
+              <ExternalLink className="size-4 shrink-0 text-court" />
+            </a>
+          ) : null}
         </div>
       </div>
 
       <ToggleField
-        label="קביעת תורים פתוחה"
+        label={active ? 'אפשר ללקוחות לקבוע תורים' : 'הפעל קביעת תורים'}
         on={settings.bookingEnabled}
-        onPointerDown={() => {
-          enablingFromSlug.current = true
-        }}
-        onToggle={(next) => {
-          const normalizedSlug = slug.trim().toLowerCase()
-          enablingFromSlug.current = false
-          if (next && !normalizedSlug) {
-            setError('קודם בוחרים כתובת לקישור, ואז מדליקים')
-            return
-          }
-          save({
-            bookingEnabled: next,
-            ...(normalizedSlug !== (settings.bookingSlug ?? '') && {
-              bookingSlug: normalizedSlug || null,
-            }),
-          })
-        }}
+        disabled={saving}
+        onToggle={(next) => save({ bookingEnabled: next })}
       />
 
       <Field label="שעות פעילות">
@@ -259,7 +256,7 @@ function BookingSection({ settings, onFlash }: { settings: CoachSettings; onFlas
         </p>
       ) : null}
 
-      {link && settings.bookingEnabled ? (
+      {active && link ? (
         <div className="flex gap-2 px-4 py-3">
           <a
             href={`https://wa.me/?text=${encodeURIComponent(shareMessage)}`}
@@ -311,20 +308,23 @@ function ToggleField({
   on,
   onToggle,
   onPointerDown,
+  disabled,
 }: {
   label: string
   on: boolean
   onToggle: (next: boolean) => void
   onPointerDown?: () => void
+  disabled?: boolean
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
+      disabled={disabled}
       onPointerDown={onPointerDown}
       onClick={() => onToggle(!on)}
-      className="flex w-full items-center justify-between gap-4 px-4 py-3 text-right active:bg-court-tint"
+      className="flex w-full items-center justify-between gap-4 px-4 py-3 text-right active:bg-court-tint disabled:opacity-60"
     >
       <span className="text-sm text-ink">{label}</span>
       <span

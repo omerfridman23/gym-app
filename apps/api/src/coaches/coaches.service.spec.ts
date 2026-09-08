@@ -97,6 +97,14 @@ describe('CoachesService.updateMe', () => {
       await service.updateMe('coach-1', { defaultPriceAgorot: 0 });
       expect(dataSentToUpdate()).toEqual({ defaultPriceAgorot: 0 });
     });
+
+    it('generates a booking link when enabling for the first time', async () => {
+      await service.updateMe('coach-1', { bookingEnabled: true });
+      expect(dataSentToUpdate()).toEqual({
+        bookingSlug: 'coach-coach1',
+        bookingEnabled: true,
+      });
+    });
   });
 
   describe('normalization', () => {

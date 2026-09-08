@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ApiError } from '@/lib/api'
 import BookPage from './book'
 
 const mocks = vi.hoisted(() => ({
@@ -65,10 +66,23 @@ describe('BookPage public booking journey', () => {
   })
 
   it('shows a safe not-found state when booking is disabled or missing', async () => {
-    mocks.getBookingInfo.mockRejectedValue(new Error('404'))
+    mocks.getBookingInfo.mockRejectedValue(new ApiError(404, 'not found'))
     render(<BookPage />)
     expect(await screen.findByText('הקישור לא נמצא')).toBeTruthy()
     expect(screen.queryByText('דנה המאמנת')).toBeNull()
+  })
+
+  it('distinguishes a connection failure from a missing link and retries', async () => {
+    mocks.getBookingInfo
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(bookingInfo())
+    render(<BookPage />)
+
+    expect(
+      await screen.findByText('לא הצלחנו לטעון את הקישור'),
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'נסו שוב' }))
+    expect(await screen.findByText('דנה המאמנת')).toBeTruthy()
   })
 
   it('renders coach details and only enables days with free slots', async () => {

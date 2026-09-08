@@ -51,36 +51,33 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('SettingsPage public booking controls', () => {
-  it('saves a freshly typed slug and enable flag in one request', async () => {
+  it('creates the booking link automatically with one switch', async () => {
     render(<SettingsPage />)
 
-    const slug = screen.getByRole('textbox', { name: 'כתובת הקישור שלך' })
-    const toggle = screen.getByRole('switch', { name: 'קביעת תורים פתוחה' })
-    fireEvent.change(slug, { target: { value: 'Dana-Coach' } })
-
-    // Browser order when the focused input is followed by a toggle click.
-    fireEvent.pointerDown(toggle)
-    fireEvent.blur(slug)
-    fireEvent.click(toggle)
+    expect(
+      screen.queryByRole('textbox', { name: 'כתובת הקישור שלך' }),
+    ).toBeNull()
+    fireEvent.click(screen.getByRole('switch', { name: 'הפעל קביעת תורים' }))
 
     await waitFor(() =>
       expect(mocks.saveSettings).toHaveBeenCalledWith({
         bookingEnabled: true,
-        bookingSlug: 'dana-coach',
       }),
     )
     expect(mocks.saveSettings).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  it('does not enable booking with an empty slug', () => {
+  it('shows a clear error when activation fails', async () => {
+    mocks.saveSettings.mockRejectedValueOnce(new Error('offline'))
     render(<SettingsPage />)
-    fireEvent.click(screen.getByRole('switch', { name: 'קביעת תורים פתוחה' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'הפעל קביעת תורים' }))
 
-    expect(screen.getByRole('alert').textContent).toContain(
-      'קודם בוחרים כתובת לקישור',
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain(
+        'השמירה נכשלה',
+      ),
     )
-    expect(mocks.saveSettings).not.toHaveBeenCalled()
   })
 
   it('logs out and returns to the login page', async () => {

@@ -35,6 +35,15 @@ export default function BookPage() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<PublicBookingResult | null>(null)
 
+  const handleLoadError = (err: unknown) => {
+    setError(
+      err instanceof ApiError && err.status === 404
+        ? null
+        : 'לא הצלחנו לטעון את הקישור. בדקו את החיבור ונסו שוב.',
+    )
+    setInfo(null)
+  }
+
   const load = () => {
     publicApi
       .getBookingInfo(params.slug)
@@ -42,7 +51,7 @@ export default function BookPage() {
         setInfo(data)
         setSelectedDate((prev) => prev ?? data.days.find((d) => d.slots.length > 0)?.date ?? null)
       })
-      .catch(() => setInfo(null))
+      .catch(handleLoadError)
   }
 
   useEffect(() => {
@@ -54,7 +63,9 @@ export default function BookPage() {
         setInfo(data)
         setSelectedDate(data.days.find((d) => d.slots.length > 0)?.date ?? data.days[0]?.date ?? null)
       })
-      .catch(() => !cancelled && setInfo(null))
+      .catch((err) => {
+        if (!cancelled) handleLoadError(err)
+      })
     return () => {
       cancelled = true
     }
@@ -79,10 +90,25 @@ export default function BookPage() {
     return (
       <PublicShell framed>
         <div className="text-center">
-          <h1 className="text-xl font-extrabold text-ink">הקישור לא נמצא</h1>
+          <h1 className="text-xl font-extrabold text-ink">
+            {error ? 'לא הצלחנו לטעון את הקישור' : 'הקישור לא נמצא'}
+          </h1>
           <p className="mt-2 font-medium text-muted text-pretty">
-            ייתכן שקביעת התורים כבויה כרגע. פנו למאמן ישירות.
+            {error ?? 'ייתכן שקביעת התורים כבויה כרגע. פנו למאמן ישירות.'}
           </p>
+          {error ? (
+            <button
+              type="button"
+              onClick={() => {
+                setInfo(undefined)
+                setError(null)
+                load()
+              }}
+              className="mt-5 rounded-xl bg-ink px-5 py-2.5 text-sm font-bold text-canvas"
+            >
+              נסו שוב
+            </button>
+          ) : null}
         </div>
       </PublicShell>
     )
