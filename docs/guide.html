@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CoachOS — המדריך המלא</title>
+<meta name="description" content="מדריך מלא לאפליקציית CoachOS: ניהול אימונים, מתאמנים, גבייה ותזכורות מהטלפון.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas:#e5edf5; --ink:#122032; --paper:#f4f8fc; --surface:#fff; --surface2:#e9f0f8;
+    --line:#d7e2ee; --court:#2563c9; --court-strong:#1d4fa8; --court-tint:#dce8fb;
+    --muted:#647388; --owed:#122032;
+    --shadow:0 1px 2px rgba(18,32,50,.06), 0 8px 24px rgba(18,32,50,.06);
+    --shadow-lg:0 24px 60px rgba(18,32,50,.14);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth; scroll-padding-top:76px}
+  body{
+    margin:0; background:var(--canvas); color:var(--ink);
+    font-family:'Assistant',-apple-system,'Segoe UI',Arial,sans-serif;
+    font-size:17px; line-height:1.75; -webkit-font-smoothing:antialiased;
+  }
+  .ltr{direction:ltr; unicode-bidi:isolate}
+  .nums{font-variant-numeric:tabular-nums; font-feature-settings:"tnum"}
+
+  /* ---------- top nav ---------- */
+  nav.top{
+    position:sticky; top:0; z-index:50; background:rgba(244,248,252,.88);
+    backdrop-filter:saturate(180%) blur(14px); border-bottom:1px solid var(--line);
+  }
+  nav.top .wrap{max-width:1120px; margin:0 auto; padding:10px 20px; display:flex; align-items:center; gap:14px}
+  nav.top .brand{display:flex; align-items:center; gap:9px; font-weight:800; font-size:18px; white-space:nowrap}
+  nav.top .dot{width:26px;height:26px;border-radius:9px;background:linear-gradient(155deg,#3b78e0,#1c4fa6);
+    display:grid;place-items:center;color:#fff;font-size:13px;font-weight:800}
+  nav.top ul{list-style:none; display:flex; gap:4px; margin:0; padding:0; overflow-x:auto; scrollbar-width:none}
+  nav.top ul::-webkit-scrollbar{display:none}
+  nav.top a{color:var(--muted); text-decoration:none; font-weight:700; font-size:14px;
+    padding:7px 12px; border-radius:999px; white-space:nowrap}
+  nav.top a:hover{background:var(--court-tint); color:var(--court)}
+
+  /* ---------- layout ---------- */
+  .page{max-width:1120px; margin:0 auto; padding:0 20px 90px}
+  section{padding:52px 0; border-top:1px solid var(--line)}
+  section:first-of-type{border-top:0}
+  h1{font-size:clamp(34px,6vw,54px); line-height:1.12; margin:0 0 14px; letter-spacing:-.02em}
+  h2{font-size:clamp(25px,3.4vw,33px); margin:0 0 6px; letter-spacing:-.015em}
+  h3{font-size:19px; margin:26px 0 8px}
+  p{margin:0 0 14px; max-width:66ch}
+  .lead{font-size:20px; color:var(--muted); max-width:60ch}
+  .eyebrow{color:var(--court); font-weight:800; font-size:14px; letter-spacing:.04em; margin:0 0 8px}
+  a{color:var(--court)}
+
+  /* ---------- hero ---------- */
+  .hero{display:grid; grid-template-columns:1.15fr .85fr; gap:44px; align-items:center; padding:64px 0 56px}
+  .hero .badge{display:inline-flex; align-items:center; gap:8px; background:var(--court-tint); color:var(--court-strong);
+    font-weight:700; font-size:14px; padding:6px 14px; border-radius:999px; margin-bottom:20px}
+  .hero-facts{display:flex; flex-wrap:wrap; gap:10px; margin-top:24px}
+  .fact{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:10px 15px; box-shadow:var(--shadow)}
+  .fact b{display:block; font-size:20px; line-height:1.2}
+  .fact span{font-size:13px; color:var(--muted)}
+
+  /* ---------- content blocks ---------- */
+  .split{display:grid; grid-template-columns:1fr 320px; gap:44px; align-items:start}
+  .split.rev{grid-template-columns:320px 1fr}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:20px 22px; box-shadow:var(--shadow)}
+  .grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)); gap:16px; margin:20px 0}
+  .grid2 .card h4{margin:0 0 6px; font-size:17px}
+  .grid2 .card p{margin:0; font-size:15.5px; color:var(--muted)}
+  .icon{width:34px;height:34px;border-radius:11px;background:var(--court-tint);color:var(--court);
+    display:grid;place-items:center;margin-bottom:11px;font-size:17px}
+
+  .tip{border-inline-start:4px solid var(--court); background:var(--court-tint);
+    padding:14px 18px; border-radius:12px; margin:20px 0}
+  .tip p{margin:0}
+  .tip b{color:var(--court-strong)}
+  .warn{border-inline-start:4px solid #b4820f; background:#fdf4dd; padding:14px 18px; border-radius:12px; margin:20px 0}
+  .warn p{margin:0}
+
+  ol.steps{counter-reset:s; list-style:none; padding:0; margin:20px 0}
+  ol.steps li{counter-increment:s; position:relative; padding-inline-start:44px; margin-bottom:16px}
+  ol.steps li::before{content:counter(s); position:absolute; inset-inline-start:0; top:2px;
+    width:28px;height:28px;border-radius:50%; background:var(--court); color:#fff;
+    display:grid;place-items:center; font-weight:800; font-size:14px}
+  ol.steps b{display:block}
+
+  table{width:100%; border-collapse:collapse; margin:18px 0; background:var(--surface);
+    border:1px solid var(--line); border-radius:14px; overflow:hidden; font-size:15.5px}
+  th,td{padding:11px 15px; text-align:start; border-bottom:1px solid var(--line); vertical-align:top}
+  th{background:var(--surface2); font-weight:800; font-size:14px}
+  tr:last-child td{border-bottom:0}
+
+  ul.plain{padding-inline-start:20px; margin:14px 0}
+  ul.plain li{margin-bottom:9px}
+
+  /* ---------- phone mockups ---------- */
+  .phone{width:300px; border-radius:36px; background:var(--paper); border:1px solid var(--line);
+    box-shadow:var(--shadow-lg); padding:9px; margin:0 auto; position:sticky; top:96px}
+  .split .phone{position:sticky}
+  .screen{background:var(--paper); border-radius:28px; overflow:hidden; height:566px;
+    display:flex; flex-direction:column; font-size:12px; line-height:1.5}
+  .cap{text-align:center; font-size:13px; color:var(--muted); margin-top:12px; font-weight:600}
+
+  .s-head{padding:13px 15px 8px; display:flex; align-items:flex-start; justify-content:space-between}
+  .s-head .t{font-size:19px; font-weight:800; line-height:1.15}
+  .s-head .sub{font-size:11px; color:var(--muted)}
+  .s-body{flex:1; overflow:hidden; padding:0 12px}
+  .s-foot{padding:8px 12px 12px}
+
+  .tiles{display:flex; gap:8px; margin-bottom:9px}
+  .tile{flex:1; background:var(--surface); border:1px solid var(--line); border-radius:13px; padding:9px 11px}
+  .tile span{font-size:10px; color:var(--muted); display:block}
+  .tile b{font-size:19px}
+  .tile.dark{background:linear-gradient(155deg,#22344f,#111a2b); color:#fff; border:0}
+  .tile.dark span{color:rgba(255,255,255,.8)}
+
+  .box{background:var(--surface); border:1px solid var(--line); border-radius:13px; padding:9px 11px; margin-bottom:8px}
+  .box .lbl{font-size:10px; font-weight:800; color:var(--muted); display:flex; justify-content:space-between; margin-bottom:6px}
+
+  .row{display:flex; align-items:center; gap:9px; background:var(--surface); border:1px solid var(--line);
+    border-radius:13px; padding:8px 10px; margin-bottom:7px}
+  .row .time{font-weight:800; color:var(--court); font-size:12px}
+  .row .who{flex:1; min-width:0}
+  .row .who b{display:block; font-size:12px}
+  .row .who span{font-size:10px; color:var(--muted)}
+  .pill{font-size:9px; font-weight:800; padding:3px 8px; border-radius:999px; background:var(--court-tint); color:var(--court)}
+  .pill.grey{background:var(--surface2); color:var(--muted)}
+  .pill.red{background:#fde7e7; color:#b4232a}
+  .av{width:28px;height:28px;border-radius:50%; background:var(--court-tint); color:var(--court-strong);
+    display:grid;place-items:center; font-weight:800; font-size:10px; flex:none}
+
+  .btn{display:block; text-align:center; background:linear-gradient(155deg,#3b78e0,#1c4fa6); color:#fff;
+    font-weight:800; padding:11px; border-radius:15px; font-size:13px}
+  .btn.ghost{background:var(--surface2); color:var(--ink)}
+  .btn.dark{background:#16233a}
+  .btn.sm{padding:7px; font-size:11px; border-radius:11px}
+
+  .tabs{display:flex; gap:3px; background:var(--surface); border:1px solid var(--line);
+    border-radius:999px; padding:5px; margin-top:8px}
+  .tabs div{flex:1; text-align:center; font-size:9px; font-weight:800; color:var(--muted); padding:6px 0; border-radius:999px}
+  .tabs div.on{background:var(--ink); color:#fff}
+
+  .hero-money{background:linear-gradient(155deg,#22344f,#111a2b); color:#fff; border-radius:20px;
+    padding:18px 14px; text-align:center; margin-bottom:10px}
+  .hero-money span{font-size:11px; color:rgba(255,255,255,.82); display:block}
+  .hero-money b{font-size:36px; line-height:1.1; display:block; letter-spacing:-.02em}
+  .hero-money .sm{font-size:11px; color:rgba(255,255,255,.82)}
+  .hero-court{background:linear-gradient(155deg,#3b78e0,#1c4fa6); color:#fff; border-radius:20px; padding:16px 14px; margin-bottom:10px}
+  .hero-court span{font-size:11px; color:rgba(255,255,255,.85); display:block}
+  .hero-court b{font-size:32px; line-height:1.1; display:block}
+
+  .seg{display:flex; background:var(--surface2); border-radius:13px; padding:4px; margin-bottom:10px}
+  .seg div{flex:1; text-align:center; font-size:11px; font-weight:800; color:var(--muted); padding:6px 0; border-radius:10px}
+  .seg div.on{background:var(--surface); color:var(--court)}
+
+  .week{display:flex; gap:4px; margin-bottom:10px}
+  .week div{flex:1; text-align:center; background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; padding:6px 0}
+  .week div small{display:block; font-size:8px; color:var(--muted); font-weight:800}
+  .week div b{font-size:13px}
+  .week div i{display:block; width:4px;height:4px;border-radius:50%; background:var(--court); margin:3px auto 0}
+  .week div.on{background:linear-gradient(155deg,#3b78e0,#1c4fa6); color:#fff; border:0}
+  .week div.on small{color:rgba(255,255,255,.85)}
+  .week div.on i{background:#fff}
+  .week div.mt i{background:transparent}
+
+  .slots{display:grid; grid-template-columns:repeat(4,1fr); gap:5px}
+  .slots div{text-align:center; background:var(--surface); border:1px solid var(--line);
+    border-radius:10px; padding:6px 0; font-size:11px; font-weight:800}
+  .slots div.on{background:var(--court-tint); border-color:var(--court); color:var(--court)}
+
+  .rate{display:flex; gap:8px; margin-bottom:10px}
+  .rate .box{flex:1; margin:0}
+  .rate b{font-size:22px; display:block; color:var(--court)}
+  .rate .bar{height:6px; background:var(--surface2); border-radius:999px; margin-top:6px; overflow:hidden}
+  .rate .bar i{display:block; height:100%; background:var(--court); border-radius:999px}
+  .rate small{font-size:9px; color:var(--muted)}
+
+  .set-row{display:flex; justify-content:space-between; align-items:center; padding:9px 11px;
+    border-bottom:1px solid var(--line); font-size:11.5px}
+  .set-row:last-child{border-bottom:0}
+  .set-row span{color:var(--muted)}
+  .sw{width:32px;height:18px;border-radius:999px;background:var(--court); position:relative; flex:none}
+  .sw::after{content:''; position:absolute; top:2px; left:2px; width:14px;height:14px;border-radius:50%; background:#fff}
+  .sw.off{background:var(--line)}
+  .sw.off::after{left:auto; right:2px}
+  .grp{background:var(--surface); border:1px solid var(--line); border-radius:13px; margin-bottom:10px; overflow:hidden}
+  .grp .gt{font-size:10px; font-weight:800; color:var(--muted); padding:7px 11px 0}
+
+  .center-screen{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; text-align:center}
+  .circle{width:56px;height:56px;border-radius:50%; background:var(--court-tint); color:var(--court);
+    display:grid;place-items:center; font-size:26px; margin-bottom:12px}
+
+  code{background:var(--surface2); padding:2px 7px; border-radius:6px; font-size:14px;
+    font-family:ui-monospace,Menlo,Consolas,monospace}
+  .vars{display:flex; flex-wrap:wrap; gap:7px; margin:12px 0}
+  .vars code{background:var(--court-tint); color:var(--court-strong); font-weight:700}
+  blockquote{margin:16px 0; padding:14px 18px; background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; color:var(--ink); font-size:15.5px}
+  blockquote p{margin:0 0 8px} blockquote p:last-child{margin:0}
+
+  footer{border-top:1px solid var(--line); padding:32px 0; text-align:center; color:var(--muted); font-size:14px}
+
+  @media (max-width:900px){
+    .hero,.split,.split.rev{grid-template-columns:1fr}
+    .phone{position:static; margin:24px auto 0}
+    nav.top .wrap{padding:8px 14px}
+    nav.top .brand span{display:none}
+    body{font-size:16px}
+  }
+  @media print{
+    nav.top{display:none} .phone{position:static; break-inside:avoid} section{break-inside:avoid}
+    body{background:#fff}
+  }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="wrap">
+    <div class="brand"><div class="dot">C</div><span>CoachOS</span></div>
+    <ul>
+      <li><a href="#start">התחלה</a></li>
+      <li><a href="#today">היום</a></li>
+      <li><a href="#calendar">יומן</a></li>
+      <li><a href="#clients">מתאמנים</a></li>
+      <li><a href="#money">כסף</a></li>
+      <li><a href="#reports">דוחות</a></li>
+      <li><a href="#settings">הגדרות</a></li>
+      <li><a href="#booking">תורים אונליין</a></li>
+      <li><a href="#client-view">מה הלקוח רואה</a></li>
+      <li><a href="#faq">שאלות</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero" id="top">
+    <div>
+      <div class="badge">◆ מדריך למאמן</div>
+      <h1>כל האימונים, הכסף<br>והתזכורות — במקום אחד</h1>
+      <p class="lead">CoachOS היא אפליקציה למאמן עצמאי: פאדל או כושר אישי. היומן, כרטיסי המתאמנים,
+        הגבייה והתזכורות בוואטסאפ — הכל מהטלפון, בעברית, בלי אקסלים ובלי לחפש מי חייב לך כמה.</p>
+      <div class="hero-facts">
+        <div class="fact"><b>60 שניות</b><span>הקמת חשבון</span></div>
+        <div class="fact"><b>לחיצה אחת</b><span>לשליחת תזכורת</span></div>
+        <div class="fact"><b>קישור אחד</b><span>והמתאמנים קובעים לבד</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="phone">
+        <div class="screen">
+          <div class="s-head">
+            <div><div class="t">היום</div><div class="sub">יום ד׳, 9 בספטמבר</div></div>
+            <div style="color:var(--muted)">⚙</div>
+          </div>
+          <div class="s-body">
+            <div class="tiles">
+              <div class="tile"><span>אימונים היום</span><b class="nums">5</b></div>
+              <div class="tile"><span>אושרו</span><b class="nums">3/5</b></div>
+            </div>
+            <div class="tile dark" style="margin-bottom:9px"><span>חוב פתוח</span><b class="nums" style="font-size:26px">₪540</b></div>
+            <div class="box">
+              <div class="lbl"><span>🔔 תזכורות לשליחה</span><span class="nums">2</span></div>
+              <div class="row" style="margin:0 0 5px"><div class="who"><b>נועה לוי</b><span class="nums ltr">07:00 · מגרש 1</span></div><div class="pill">שליחה</div></div>
+              <div class="row" style="margin:0"><div class="who"><b>יואב כהן</b><span class="nums ltr">09:30 · מגרש 3</span></div><div class="pill">שליחה</div></div>
+            </div>
+            <div class="lbl" style="font-size:10px;font-weight:800;color:var(--muted);display:flex;justify-content:space-between;margin:8px 2px 6px">
+              <span>מהלך היום</span><span class="nums">5</span></div>
+            <div class="row"><div class="time nums">07:00</div><div class="who"><b>נועה לוי</b><span class="nums">₪180</span></div><div class="pill">אישר</div></div>
+            <div class="row"><div class="time nums">09:30</div><div class="who"><b>יואב כהן</b><span class="nums">₪180</span></div><div class="pill">אישר</div></div>
+            <div class="row"><div class="time nums">12:00</div><div class="who"><b>מאיה פרץ</b><span class="nums">₪160</span></div><div class="pill grey">ממתין</div></div>
+          </div>
+          <div class="s-foot">
+            <div class="btn">+ אימון חדש</div>
+            <div class="tabs"><div class="on">היום</div><div>יומן</div><div>מתאמנים</div><div>כסף</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="cap">מסך הפתיחה — כל מה שצריך לדעת הבוקר</div>
+    </div>
+  </section>
+
+  <!-- ============ CONCEPTS ============ -->
+  <section id="concepts">
+    <p class="eyebrow">לפני שמתחילים</p>
+    <h2>שלושה דברים שכדאי להבין</h2>
+    <p>הם מסבירים כמעט כל החלטה בעיצוב האפליקציה.</p>
+    <div class="grid2">
+      <div class="card">
+        <div class="icon">🔒</div>
+        <h4>המידע שלך פרטי לחלוטין</h4>
+        <p>כל מתאמן, אימון ותשלום שייכים לחשבון שלך בלבד. אין "בעל מכון" שרואה את הנתונים,
+          ואף מאמן אחר לא יכול להגיע אליהם.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔗</div>
+        <h4>המתאמנים לא מתחברים</h4>
+        <p>אין להם משתמש וסיסמה. הם מקבלים ממך קישור בוואטסאפ ועושים פעולה אחת: מאשרים הגעה,
+          קובעים שעה, או רואים את החוב.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💬</div>
+        <h4>וואטסאפ הוא ערוץ ההודעות</h4>
+        <p>האפליקציה מנסחת את ההודעה ופותחת את וואטסאפ עם הטקסט מוכן. את השליחה אתה מאשר —
+          כדי שתמיד תדע מה יצא ולמי.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ START ============ -->
+  <section id="start">
+    <div class="split">
+      <div>
+        <p class="eyebrow">שלב 1</p>
+        <h2>כניסה והקמת החשבון</h2>
+        <p>אין מה להתקין. פותחים את כתובת האפליקציה בדפדפן של הטלפון ומתחברים במספר הנייד.</p>
+
+        <h3>הכניסה</h3>
+        <ol class="steps">
+          <li><b>מקישים את מספר הנייד</b> בפורמט <code class="ltr">05XXXXXXXX</code> ולוחצים "שלחו לי קוד".</li>
+          <li><b>מקבלים קוד בן 6 ספרות</b> ב־SMS ומקישים אותו. הקוד תקף ל־10 דקות.</li>
+          <li><b>זה הכל.</b> הכניסה מסתיימת אוטומטית ברגע שהקוד הוקש במלואו.</li>
+        </ol>
+        <p>אין סיסמאות. אם הקוד לא הגיע יש כפתור "שלחו שוב", ואם טעית בספרה — "החלפת מספר".
+          הכניסה נשמרת לחודש, כך שבשימוש יומיומי לא צריך להתחבר שוב.</p>
+
+        <div class="tip"><p><b>טיפ:</b> אחרי הכניסה הראשונה הוסיפו את האפליקציה למסך הבית של הטלפון
+          ("הוסף למסך הבית" בתפריט השיתוף). היא תיפתח במסך מלא, בדיוק כמו אפליקציה רגילה.</p></div>
+
+        <h3>ההקמה — שני מסכים</h3>
+        <p><b>מסך ראשון: איזה מאמן/ת את/ה?</b> בוחרים <b>מאמן פאדל</b> או <b>מאמן כושר אישי</b>.
+          הבחירה מתאימה את כל האפליקציה לתחום שלך — המילים במסכים, סוגי האימונים, השדות בכרטיס
+          המתאמן, סיבות הביטול ואורך האימון.</p>
+        <p><b>מסך שני: קצת פרטים.</b> השם שלך (הוא מופיע בהודעות שהמתאמנים מקבלים) ומחיר ברירת מחדל
+          לאימון. המחיר יוצע אוטומטית בכל אימון ומתאמן חדשים, ותמיד אפשר לשנות נקודתית.</p>
+      </div>
+      <div>
+        <div class="phone">
+          <div class="screen">
+            <div class="center-screen">
+              <div class="circle">📞</div>
+              <div style="font-size:26px;font-weight:800">CoachOS</div>
+              <div style="color:var(--muted);font-size:12px;margin:6px 0 22px">נכנסים עם מספר הטלפון,<br>בלי סיסמאות</div>
+              <div style="width:100%;text-align:start">
+                <div style="font-size:11px;font-weight:700;margin-bottom:6px">מספר טלפון</div>
+                <div class="ltr nums" style="background:var(--surface);border:1px solid var(--line);
+                  border-radius:14px;padding:11px 13px;font-size:16px;letter-spacing:.04em;margin-bottom:12px">050-0000000</div>
+                <div class="btn">שלחו לי קוד</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">כניסה בקוד SMS — בלי סיסמאות</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TODAY ============ -->
+  <section id="today">
+    <div class="split rev">
+      <div>
+        <div class="phone">
+          <div class="screen">
+            <div class="s-head">
+              <div><div class="t">היום</div><div class="sub">יום ד׳, 9 בספטמבר</div></div>
+              <div style="color:var(--muted)">⚙</div>
+            </div>
+            <div class="s-body">
+              <div class="tiles">
+                <div class="tile"><span>אימונים היום</span><b class="nums">5</b></div>
+                <div class="tile"><span>אושרו</span><b class="nums">3/5</b></div>
+              </div>
+              <div class="tile dark" style="margin-bottom:9px"><span>חוב פתוח</span><b class="nums" style="font-size:26px">₪540</b></div>
+              <div class="box">
+                <div class="lbl"><span>🔔 תזכורות לשליחה</span><span class="nums">2</span></div>
+                <div class="row" style="margin:0 0 5px"><div class="who"><b>נועה לוי</b><span class="nums ltr">07:00 · מגרש 1</span></div><div class="pill">שליחה</div></div>
+                <div class="row" style="margin:0"><div class="who"><b>יואב כהן</b><span class="nums ltr">09:30 · מגרש 3</span></div><div class="pill">שליחה</div></div>
+              </div>
+              <div style="font-size:10px;font-weight:800;color:var(--muted);display:flex;justify-content:space-between;margin:8px 2px 6px">
+                <span>מהלך היום</span><span class="nums">5</span></div>
+              <div class="row"><div class="time nums">12:00</div><div class="who"><b>מאיה פרץ</b><span class="nums">₪160</span></div><div class="pill grey">ממתין</div></div>
+              <div class="row"><div class="time nums">16:30</div><div class="who"><b>איתי מזרחי</b><span class="nums">₪180</span></div><div class="pill">אישר</div></div>
+              <div class="row"><div class="time nums">19:00</div><div class="who"><b>שירה אברמוב</b><span class="nums">₪200</span></div><div class="pill grey">ממתין</div></div>
+            </div>
+            <div class="s-foot">
+              <div class="btn">+ אימון חדש</div>
+              <div class="tabs"><div class="on">היום</div><div>יומן</div><div>מתאמנים</div><div>כסף</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">מסך "היום"</div>
+      </div>
+      <div>
+        <p class="eyebrow">הכרטיסייה הראשונה</p>
+        <h2>"היום" — נקודת הפתיחה של כל בוקר</h2>
+        <p>זה המסך שנפתח בכניסה, והוא עונה על שאלה אחת: מה צריך לעשות עכשיו.</p>
+
+        <h3>שלוש הכרטיסיות בראש המסך</h3>
+        <table>
+          <tr><th>כרטיסייה</th><th>מה היא מציגה</th></tr>
+          <tr><td><b>אימונים היום</b></td><td>מספר האימונים המתוכננים להיום, בלי אימונים שבוטלו</td></tr>
+          <tr><td><b>אושרו</b></td><td>כמה מהם המתאמן כבר אישר שיגיע</td></tr>
+          <tr><td><b>חוב פתוח</b></td><td>סך הכסף שממתין לגבייה. לחיצה מעבירה למסך הכסף</td></tr>
+        </table>
+
+        <h3>"תזכורות לשליחה" — החלק השימושי ביותר</h3>
+        <p>האפליקציה בודקת אילו אימונים מתקרבים (כברירת מחדל 24 שעות לפני) ושעדיין לא נשלחה עליהם
+          תזכורת, ומרכזת אותם לרשימה אחת.</p>
+        <p>לחיצה על <b>"שליחה"</b> פותחת את וואטסאפ עם ההודעה כבר מנוסחת — השם, השעה, המיקום וקישור
+          אישי לאישור הגעה. באותה לחיצה האימון מסומן כ"נשלחה תזכורת", נעלם מהרשימה, ולא תשלח פעמיים.</p>
+        <p>אם אין תזכורות שממתינות — האזור הזה פשוט לא מוצג.</p>
+
+        <h3>"מהלך היום" ופעולות על אימון</h3>
+        <p>רשימת האימונים לפי שעות. לחיצה על אימון פותחת חלונית פעולות:</p>
+        <ul class="plain">
+          <li><b>סמן שאישר</b> — כשהמתאמן אישר בטלפון ולא דרך הקישור.</li>
+          <li><b>סמן כשולם</b> — רושם תשלום ומוציא את האימון מהחובות.</li>
+          <li><b>שלח תזכורת בוואטסאפ</b> — פותח וואטסאפ עם ההודעה מוכנה.</li>
+          <li><b>כרטיס מתאמן</b> — מעבר לכרטיס המלא.</li>
+          <li><b>בטל אימון</b> — פותח רשימת סיבות מוכנות ("מזג אוויר", "המגרש לא זמין",
+            "המתאמן ביטל"). הסיבה נשמרת ומופיעה בהיסטוריה.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CALENDAR ============ -->
+  <section id="calendar">
+    <div class="split">
+      <div>
+        <p class="eyebrow">הכרטיסייה השנייה</p>
+        <h2>יומן — לתכנן שבוע קדימה</h2>
+        <ul class="plain">
+          <li><b>מעבר בין שבועות</b> בחיצים, וכפתור <b>"היום"</b> באמצע שמחזיר לשבוע הנוכחי.</li>
+          <li><b>בורר הימים</b> — ראשון עד שבת. נקודה קטנה מתחת לתאריך מסמנת שיש בו אימונים,
+            כך שרואים את עומס השבוע במבט אחד.</li>
+          <li><b>רשימת האימונים</b> של היום שנבחר, עם אותן פעולות בדיוק כמו במסך "היום".</li>
+          <li>אם ביום שנבחר אין אימונים — מוצע להוסיף אימון בלחיצה אחת, כשהתאריך כבר ממולא.</li>
+        </ul>
+
+        <h3>יצירת אימון חדש</h3>
+        <table>
+          <tr><th>שדה</th><th>פירוט</th></tr>
+          <tr><td><b>מתאמן</b></td><td>רשימת המתאמנים עם שדה חיפוש. חייבים לבחור אחד</td></tr>
+          <tr><td><b>סוג אימון</b></td><td>פאדל: פרטי / זוגי / קבוצתי · כושר: אישי / זוגי / קבוצה קטנה</td></tr>
+          <tr><td><b>תאריך ושעה</b></td><td>ברירת המחדל: היום שנבחר ביומן, בשעה <span class="ltr nums">18:00</span></td></tr>
+          <tr><td><b>מיקום</b></td><td>רק בפאדל — למשל "מגרש 1, קאנטרי הרצליה"</td></tr>
+          <tr><td><b>מחיר</b></td><td>מגיע ממחיר ברירת המחדל שלך, וניתן לשינוי</td></tr>
+          <tr><td><b>חוזר כל שבוע</b></td><td>סימון התיבה יוצר את האימון ועוד 11 חזרות שבועיות — <b>12 אימונים בסך הכל</b></td></tr>
+        </table>
+        <p>האימון נשמר בסטטוס <b>"ממתין"</b> עד שהמתאמן מאשר, או עד שאתה מסמן שאישר.</p>
+        <div class="warn"><p><b>שים לב:</b> האפליקציה לא תיתן לקבוע שני אימונים שחופפים בזמן.
+          אם ניסית — תקבל התראה ותצטרך לבחור שעה אחרת.</p></div>
+      </div>
+      <div>
+        <div class="phone">
+          <div class="screen">
+            <div class="s-head"><div><div class="t">יומן</div><div class="sub">6 בספט׳ – 12 בספט׳</div></div></div>
+            <div class="s-body">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="color:var(--muted)">‹</span>
+                <span style="font-size:11px;font-weight:800;color:var(--court);background:var(--surface);
+                  border:1px solid var(--line);border-radius:999px;padding:4px 14px">היום</span>
+                <span style="color:var(--muted)">›</span>
+              </div>
+              <div class="week">
+                <div class="mt"><small>א</small><b class="nums">6</b><i></i></div>
+                <div><small>ב</small><b class="nums">7</b><i></i></div>
+                <div><small>ג</small><b class="nums">8</b><i></i></div>
+                <div class="on"><small>ד</small><b class="nums">9</b><i></i></div>
+                <div><small>ה</small><b class="nums">10</b><i></i></div>
+                <div class="mt"><small>ו</small><b class="nums">11</b><i></i></div>
+                <div class="mt"><small>ש</small><b class="nums">12</b><i></i></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;margin:0 2px 7px">
+                <b>יום ד׳, 9 בספטמבר</b><span style="color:var(--muted)">5 אימונים</span></div>
+              <div class="row"><div class="time nums">07:00</div><div class="who"><b>נועה לוי</b><span>פרטי · מגרש 1</span></div><div class="pill">אישר</div></div>
+              <div class="row"><div class="time nums">09:30</div><div class="who"><b>יואב כהן</b><span>זוגי · מגרש 3</span></div><div class="pill">אישר</div></div>
+              <div class="row"><div class="time nums">12:00</div><div class="who"><b>מאיה פרץ</b><span>פרטי · מגרש 2</span></div><div class="pill grey">ממתין</div></div>
+              <div class="row"><div class="time nums">16:30</div><div class="who"><b>איתי מזרחי</b><span>קבוצתי · מגרש 1</span></div><div class="pill">אישר</div></div>
+            </div>
+            <div class="s-foot">
+              <div class="btn">+ אימון חדש</div>
+              <div class="tabs"><div>היום</div><div class="on">יומן</div><div>מתאמנים</div><div>כסף</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">שבוע במבט אחד</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CLIENTS ============ -->
+  <section id="clients">
+    <div class="split rev">
+      <div>
+        <div class="phone">
+          <div class="screen">
+            <div class="s-head"><div><div class="t">מתאמנים</div><div class="sub">14 מתאמנים</div></div></div>
+            <div class="s-body">
+              <div class="ltr" style="background:var(--surface);border:1px solid var(--line);border-radius:14px;
+                padding:8px 11px;color:var(--muted);font-size:11px;margin-bottom:9px;text-align:right">חיפוש מתאמן… 🔍</div>
+              <div class="row"><div class="av">נל</div><div class="who"><b>נועה לוי</b><span>רמת משחק: מתקדם</span></div><div class="pill red nums">₪360</div></div>
+              <div class="row"><div class="av">יכ</div><div class="who"><b>יואב כהן</b><span>כרטיסייה · נותרו 4</span></div></div>
+              <div class="row"><div class="av">מפ</div><div class="who"><b>מאיה פרץ</b><span>רמת משחק: בינוני</span></div><div class="pill red nums">₪180</div></div>
+              <div class="row"><div class="av">אמ</div><div class="who"><b>איתי מזרחי</b><span class="nums ltr">052-1234567</span></div></div>
+              <div class="row"><div class="av">שא</div><div class="who"><b>שירה אברמוב</b><span>רמת משחק: תחרותי</span></div></div>
+              <div class="row"><div class="av">דב</div><div class="who"><b>דניאל בר</b><span>כרטיסייה · נותרו 7</span></div></div>
+            </div>
+            <div class="s-foot">
+              <div class="btn">+ מתאמן חדש</div>
+              <div class="tabs"><div>היום</div><div>יומן</div><div class="on">מתאמנים</div><div>כסף</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">חוב וכרטיסייה נראים בלי להיכנס</div>
+      </div>
+      <div>
+        <p class="eyebrow">הכרטיסייה השלישית</p>
+        <h2>מתאמנים</h2>
+        <p>כל המתאמנים ממוינים לפי שם, עם חיפוש שעובד גם על שם וגם על מספר טלפון.
+          בכל שורה אתה רואה בלי להיכנס פנימה:</p>
+        <ul class="plain">
+          <li><b>חוב פתוח</b> — הסכום מופיע בבועה בצד.</li>
+          <li><b>כרטיסייה פעילה</b> — כמה אימונים נותרו בה.</li>
+          <li>אחרת — הפרט המרכזי מהכרטיס (רמת משחק בפאדל, מטרה בכושר) או הטלפון.</li>
+        </ul>
+
+        <h3>הוספת מתאמן</h3>
+        <p><b>שם מלא</b> ו<b>טלפון</b> הם שדות חובה. אחריהם באים <b>שדות התחום</b> — בפאדל: רמת משחק
+          וצד במגרש; בכושר: מטרה והערות ומגבלות. בסוף <b>מחיר לאימון</b> אישי למתאמן הזה, שימושי
+          כשיש לך מחירון שונה לאנשים שונים.</p>
+
+        <h3>כרטיס המתאמן</h3>
+        <ul class="plain">
+          <li><b>פרטי קשר</b> עם תגיות שדות התחום, וכפתורי <b>חיוג</b> ו<b>וואטסאפ</b>.</li>
+          <li><b>כרטיסייה</b> — אם קיימת, עם פס התקדמות שמראה כמה אימונים נותרו מתוך כמה נקנו.</li>
+          <li><b>חוב פתוח</b> — הסכום, מספר האימונים שלא שולמו, וכפתורי <b>סמן כשולם</b> ו<b>בקש תשלום</b>.
+            אם אין חוב — מופיעה שורה ירוקה "אין חוב פתוח".</li>
+          <li><b>היסטוריית אימונים</b> — מהחדש לישן, עם תאריך, שעה, מחיר, וסימון אם שולם, אם היה
+            מכרטיסייה, או אם בוטל ומאיזו סיבה.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MONEY ============ -->
+  <section id="money">
+    <div class="split">
+      <div>
+        <p class="eyebrow">הכרטיסייה הרביעית</p>
+        <h2>כסף — מרכז הגבייה</h2>
+        <p>על אייקון הכרטיסייה מופיע מספר המתאמנים שחייבים לך כרגע, כדי שלא תשכח.</p>
+
+        <h3>מה נחשב חוב</h3>
+        <p>אימון נכנס לחובות כשהוא <b>כבר התקיים</b>, <b>היה בתשלום</b> (מחיר מעל אפס ולא מכרטיסייה),
+          ו<b>לא סומן כשולם</b>. אימונים עתידיים, אימונים שבוטלו ואימונים מכרטיסייה לא נכנסים לחשבון.</p>
+
+        <h3>שתי פעולות לכל מתאמן</h3>
+        <ul class="plain">
+          <li><b>בקש תשלום</b> — פותח וואטסאפ עם הודעה מנוסחת: הסכום, מספר האימונים, וקישור אישי שבו
+            המתאמן רואה את הפירוט. אם מספר הטלפון אינו תקין יופיע במקום "טלפון לא תקין".</li>
+          <li><b>סמן כשולם</b> — בוחרים אמצעי תשלום: <b>מזומן / ביט / העברה / אשראי</b>. האישור מסמן
+            את כל האימונים של המתאמן כשולמו בפעולה אחת, והחוב נמחק מהרשימה.</li>
+        </ul>
+
+        <h3>גבייה מרוכזת</h3>
+        <p>כשיש יותר ממתאמן אחד שחייב, מופיע בראש המסך <b>"בקש תשלום בוואטסאפ"</b> עם מספר המתאמנים
+          בסוגריים. הוא מעביר אותך אחד־אחד: מציג את המתאמן והסכום, אתה לוחץ "פתח בוואטסאפ" ושולח,
+          או "דלג" — וממשיך לבא בתור. בסוף מוצג סיכום כמה שיחות נפתחו.</p>
+        <div class="tip"><p><b>למה צעד־צעד ולא הכל בבת אחת?</b> הדפדפן מרשה לפתוח חלון אחד לכל לחיצה.
+          זכור לוודא שלחצת "שלח" בתוך וואטסאפ בכל שיחה שנפתחה.</p></div>
+      </div>
+      <div>
+        <div class="phone">
+          <div class="screen">
+            <div class="s-head"><div><div class="t">כסף</div></div><div style="color:var(--muted)">📊</div></div>
+            <div class="s-body">
+              <div class="hero-money">
+                <span>סך חובות פתוחים</span>
+                <b class="nums">₪1,240</b>
+                <div class="sm">מ־4 מתאמנים</div>
+                <div style="background:rgba(255,255,255,.16);border-radius:999px;padding:6px 0;margin-top:11px;
+                  font-size:11px;font-weight:800">בקש תשלום בוואטסאפ (4)</div>
+              </div>
+              <div class="box">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <div class="av">נל</div>
+                  <div class="who" style="flex:1"><b>נועה לוי</b><span>2 אימונים · לפני 9 ימים</span></div>
+                  <b class="nums" style="font-size:15px">₪360</b>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:8px">
+                  <div class="btn dark sm" style="flex:1">בקש תשלום</div>
+                  <div class="btn ghost sm" style="flex:1">סמן כשולם</div>
+                </div>
+              </div>
+              <div class="box">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <div class="av">מפ</div>
+                  <div class="who" style="flex:1"><b>מאיה פרץ</b><span>1 אימון · לפני 3 ימים</span></div>
+                  <b class="nums" style="font-size:15px">₪180</b>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:8px">
+                  <div class="btn dark sm" style="flex:1">בקש תשלום</div>
+                  <div class="btn ghost sm" style="flex:1">סמן כשולם</div>
+                </div>
+              </div>
+            </div>
+            <div class="s-foot">
+              <div class="tabs"><div>היום</div><div>יומן</div><div>מתאמנים</div><div class="on">כסף</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">מי חייב, כמה, ומתי היה האימון האחרון</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ REPORTS ============ -->
+  <section id="reports">
+    <div class="split rev">
+      <div>
+        <div class="phone">
+          <div class="screen">
+            <div class="s-head"><div><div class="t">דוחות</div><div class="sub">ספטמבר 2026</div></div><div style="color:var(--muted)">←</div></div>
+            <div class="s-body">
+              <div class="seg"><div>השבוע</div><div class="on">החודש</div><div>הכל</div></div>
+              <div class="hero-court">
+                <span>📈 הכנסות החודש</span>
+                <b class="nums">₪8,640</b>
+                <div style="font-size:11px;color:rgba(255,255,255,.85);margin-top:4px">48 אימונים בוצעו</div>
+              </div>
+              <div class="rate">
+                <div class="box"><small>אחוז גבייה</small><b class="nums">86%</b>
+                  <div class="bar"><i style="width:86%"></i></div><small>₪8,640 נגבו</small></div>
+                <div class="box"><small>אחוז הגעה</small><b class="nums">94%</b>
+                  <div class="bar"><i style="width:94%"></i></div><small>3 לא הגיעו</small></div>
+              </div>
+              <div style="background:var(--surface2);border-radius:13px;padding:10px 12px;margin-bottom:10px;
+                display:flex;justify-content:space-between;align-items:center">
+                <div><div style="font-size:10px;color:var(--muted);font-weight:700">חובות פתוחים כרגע</div>
+                  <b class="nums" style="font-size:19px">₪1,240</b></div>
+                <span style="font-size:11px;font-weight:800">לגבייה ←</span>
+              </div>
+              <div style="font-size:10px;font-weight:800;color:var(--muted);margin:0 2px 6px">מתאמנים מובילים</div>
+              <div class="row"><div class="av">נל</div><div class="who"><b>נועה לוי</b><span>9 אימונים</span></div><b class="nums">₪1,620</b></div>
+              <div class="row"><div class="av">יכ</div><div class="who"><b>יואב כהן</b><span>7 אימונים</span></div><b class="nums">₪1,260</b></div>
+            </div>
+            <div class="s-foot">
+              <div class="tabs"><div>היום</div><div>יומן</div><div>מתאמנים</div><div class="on">כסף</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">דוחות — דרך אייקון הגרף במסך הכסף</div>
+      </div>
+      <div>
+        <p class="eyebrow">מספרים</p>
+        <h2>דוחות</h2>
+        <p>מגיעים דרך אייקון הגרף בפינת מסך הכסף. בוחרים טווח: <b>השבוע</b> (7 הימים האחרונים),
+          <b>החודש</b> (עם חיצים למעבר בין חודשים) או <b>הכל</b>.</p>
+        <div class="grid2">
+          <div class="card"><h4>הכנסות</h4><p>הכסף שנגבה בפועל על אימונים שהתקיימו בטווח, בתוספת
+            כרטיסיות שנקנו בו. מתחת — כמה אימונים בוצעו.</p></div>
+          <div class="card"><h4>אחוז גבייה</h4><p>איזה חלק ממה שהיית אמור לקבל בטווח נכנס בפועל.
+            המספר הזה הוא בדיקת הדופק החשובה ביותר.</p></div>
+          <div class="card"><h4>אחוז הגעה</h4><p>היחס בין מי שהגיע למי שלא הופיע.</p></div>
+          <div class="card"><h4>מתאמנים מובילים</h4><p>עד חמישה מתאמנים לפי מספר האימונים בטווח,
+            עם ההכנסה מכל אחד.</p></div>
+        </div>
+        <p><b>חובות פתוחים כרגע</b> מוצג גם כאן, ולא תלוי בטווח שנבחר. לחיצה מחזירה למסך הגבייה.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section id="settings">
+    <div class="split">
+      <div>
+        <p class="eyebrow">התאמה אישית</p>
+        <h2>הגדרות</h2>
+        <p>נכנסים דרך גלגל השיניים בפינת מסך "היום". <b>כל שינוי נשמר אוטומטית</b> — אין כפתור שמירה,
+          ואישור קצר "נשמר" מופיע בתחתית המסך.</p>
+        <table>
+          <tr><th>מקטע</th><th>מה אפשר לעשות</th></tr>
+          <tr><td><b>פרופיל</b></td><td>לעדכן את שם המאמן (מופיע בהודעות). התחום לצפייה בלבד</td></tr>
+          <tr><td><b>מחירים</b></td><td>לראות את מחיר ברירת המחדל לאימון</td></tr>
+          <tr><td><b>תזכורות</b></td><td>לראות כמה שעות לפני האימון נשלחת תזכורת (ברירת מחדל: 24)</td></tr>
+          <tr><td><b>קביעת תורים</b></td><td>להפעיל ולשתף את קישור ההזמנות</td></tr>
+          <tr><td><b>מדיניות ביטול</b></td><td>לכתוב בטקסט חופשי את המדיניות שלך</td></tr>
+          <tr><td><b>תבניות הודעה</b></td><td>לנסח מחדש את הודעת התזכורת והודעת החוב</td></tr>
+        </table>
+
+        <h3>תבניות הודעה</h3>
+        <p>שתי ההודעות שהאפליקציה שולחת בשמך. אלה ברירות המחדל:</p>
+        <blockquote>
+          <p><b>תזכורת:</b> היי {שם}, כאן {מאמן}. מזכיר לך את האימון מחר ב־{שעה} ב{מיקום}. מאשר/ת? {קישור}</p>
+          <p><b>חוב:</b> היי {שם}, כאן {מאמן}. נותר חוב פתוח של {סכום} על {מספר} אימונים. אפשר להסדיר כאן: {קישור}</p>
+        </blockquote>
+        <p>אפשר לשנות את הנוסח לגמרי, בתנאי שמשאירים את המשתנים במקומם. הם מתמלאים אוטומטית:</p>
+        <div class="vars">
+          <code>{שם}</code><code>{מאמן}</code><code>{שעה}</code><code>{מיקום}</code><code>{סכום}</code><code>{קישור}</code>
+        </div>
+        <div class="warn"><p><b>חשוב:</b> אם תמחק את <code>{קישור}</code> מהתזכורת, המתאמן לא יוכל
+          לאשר הגעה בלחיצה ותצטרך לעדכן את הסטטוס ידנית.</p></div>
+      </div>
+      <div>
+        <div class="phone">
+          <div class="screen">
+            <div class="s-head"><div><div class="t">הגדרות</div><div class="sub">מאמן דנה</div></div></div>
+            <div class="s-body">
+              <div class="grp">
+                <div class="gt">👤 פרופיל</div>
+                <div class="set-row"><span>שם המאמן</span><b>דנה</b></div>
+                <div class="set-row"><span>תחום</span><b>פאדל</b></div>
+              </div>
+              <div class="grp">
+                <div class="gt">🔔 תזכורות</div>
+                <div class="set-row"><span>שליחת תזכורת לפני</span><b class="nums">24 שעות</b></div>
+                <div class="set-row"><span>תזכורת אוטומטית</span><div class="sw"></div></div>
+                <div class="set-row"><span>בקשת אישור הגעה</span><div class="sw"></div></div>
+              </div>
+              <div class="grp">
+                <div class="gt">📅 קביעת תורים אונליין</div>
+                <div style="padding:9px 11px">
+                  <div style="background:var(--court-tint);border-radius:12px;padding:9px 11px">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:var(--court-strong)">
+                      <span style="width:7px;height:7px;border-radius:50%;background:var(--court)"></span>הקישור פעיל ומוכן לשיתוף</div>
+                    <div class="ltr" style="background:var(--surface);border-radius:9px;padding:6px 8px;
+                      margin-top:7px;font-size:9.5px;color:var(--muted);overflow:hidden;white-space:nowrap">coachos.app/book/dana-padel</div>
+                  </div>
+                  <div style="display:flex;gap:6px;margin-top:8px">
+                    <div class="btn dark sm" style="flex:1">שתף בוואטסאפ</div>
+                    <div class="btn ghost sm" style="flex:1">העתק קישור</div>
+                  </div>
+                </div>
+                <div class="set-row"><span>שעות פעילות</span><b class="nums ltr">08 – 21</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">הגדרות — הכל נשמר אוטומטית</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BOOKING ============ -->
+  <section id="booking">
+    <div class="split rev">
+      <div>
+        <div class="phone">
+          <div class="screen">
+            <div class="center-screen" style="justify-content:flex-start;padding-top:26px">
+              <div style="font-size:11px;font-weight:700;color:var(--muted)">📅 קביעת אימון אונליין</div>
+              <div style="font-size:22px;font-weight:800;margin-top:4px">דנה</div>
+              <div style="font-size:11px;color:var(--muted)">אימון של 60 דקות · ₪180</div>
+              <div class="week" style="margin-top:18px;width:100%">
+                <div class="mt"><small>היום</small><b class="nums">9</b></div>
+                <div class="on"><small>ה</small><b class="nums">10</b></div>
+                <div><small>ו</small><b class="nums">11</b></div>
+                <div><small>ש</small><b class="nums">12</b></div>
+                <div><small>א</small><b class="nums">13</b></div>
+                <div><small>ב</small><b class="nums">14</b></div>
+              </div>
+              <div class="slots" style="width:100%">
+                <div>08:00</div><div>09:00</div><div class="on">10:00</div><div>11:00</div>
+                <div>14:00</div><div>15:00</div><div>18:00</div><div>19:00</div>
+              </div>
+              <div style="width:100%;margin-top:14px">
+                <div style="background:var(--surface2);border:1px solid var(--line);border-radius:11px;
+                  padding:9px 11px;font-size:11px;color:var(--muted);margin-bottom:6px">שם מלא</div>
+                <div class="ltr" style="background:var(--surface2);border:1px solid var(--line);border-radius:11px;
+                  padding:9px 11px;font-size:11px;color:var(--muted);margin-bottom:9px;text-align:right">נייד (05X-XXXXXXX)</div>
+                <div class="btn">אשר קביעת אימון</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">מה שהמתאמן רואה בקישור ההזמנות</div>
+      </div>
+      <div>
+        <p class="eyebrow">הפיצ׳ר שחוסך את רוב ההתכתבויות</p>
+        <h2>קביעת תורים אונליין</h2>
+        <p>אתה מפרסם קישור אחד, והמתאמנים בוחרים בעצמם שעה פנויה. אין יותר "מתי אתה פנוי?"
+          שמתגלגל לעשר הודעות.</p>
+
+        <h3>הפעלה</h3>
+        <ol class="steps">
+          <li><b>הגדרות ← קביעת תורים אונליין.</b></li>
+          <li><b>מפעילים את המתג.</b> הקישור נוצר בשבילך אוטומטית בהפעלה הראשונה.</li>
+          <li><b>מגדירים שעות פעילות</b> — שעת התחלה וסיום (ברירת מחדל <span class="ltr nums">8–21</span>).
+            יוצעו רק שעות בתוך החלון הזה.</li>
+          <li><b>משתפים</b> — "שתף בוואטסאפ" עם הודעה מוכנה, או "העתק קישור" לביו באינסטגרם,
+            לחתימה או לקבוצה.</li>
+        </ol>
+
+        <h3>איך נבחרות השעות שמוצעות</h3>
+        <ul class="plain">
+          <li><b>14 יום קדימה</b>, בשעות עגולות בלבד.</li>
+          <li>רק בתוך <b>שעות הפעילות</b> שהגדרת.</li>
+          <li><b>לפחות שעתיים מראש</b> — אף אחד לא תופס לך שעה לעוד עשר דקות.</li>
+          <li><b>שעות תפוסות ביומן שלך לא מוצגות.</b> אימון שביטלת משחרר את השעה בחזרה.</li>
+          <li>אורך האימון לפי התחום: 60 דקות בפאדל, 50 בכושר.</li>
+        </ul>
+
+        <h3>מה קורה כשמישהו קובע</h3>
+        <p>האימון נכנס ליומן שלך בסטטוס <b>"ממתין"</b>, בדיוק כמו אימון שיצרת בעצמך — ואתה מאשר
+          כשמתאים לך. מתאמן חדש מקבל אוטומטית כרטיס עם השם והטלפון שהשאיר ועם מחיר ברירת המחדל שלך.
+          מתאמן קיים מזוהה לפי הטלפון, כך שלא נוצרים כרטיסים כפולים.</p>
+        <div class="tip"><p><b>הגנה מפני הצפה:</b> אותו מתאמן לא יכול להשאיר יותר מארבעה אימונים
+          שממתינים לאישור, ויש תקרה על מספר ההזמנות בזמן קצר. אפשר לכבות את הקישור בכל רגע.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CLIENT VIEW ============ -->
+  <section id="client-view">
+    <p class="eyebrow">הצד השני</p>
+    <h2>מה המתאמן שלך רואה</h2>
+    <p>שלושה קישורים, שלוש מטרות. אין הרשמה, אין סיסמה, הכל נפתח בדפדפן.</p>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:28px; margin-top:28px">
+
+      <div>
+        <div class="phone" style="position:static">
+          <div class="screen" style="height:470px">
+            <div class="center-screen" style="justify-content:flex-start;padding-top:24px">
+              <div style="font-size:11px;color:var(--muted)">אישור אימון · דנה</div>
+              <div style="font-size:17px;font-weight:800;margin-top:3px">שלום נועה</div>
+              <div style="width:100%;background:var(--surface);border:1px solid var(--line);
+                border-radius:20px;overflow:hidden;margin-top:16px">
+                <div style="background:linear-gradient(155deg,#3b78e0,#1c4fa6);color:#fff;padding:16px;text-align:center">
+                  <div style="font-size:10px;color:rgba(255,255,255,.82)">האימון שלך</div>
+                  <div style="font-size:16px;font-weight:800;margin-top:3px">יום ה׳, 10 בספטמבר</div>
+                </div>
+                <div style="padding:12px;text-align:center;font-size:11px">
+                  <div class="nums ltr">🕐 07:00–08:00</div>
+                  <div style="margin-top:5px">📍 מגרש 1, קאנטרי הרצליה</div>
+                </div>
+              </div>
+              <div style="font-size:11px;color:var(--muted);margin:16px 0 9px">האם תגיע/י לאימון?</div>
+              <div style="width:100%"><div class="btn">✓ מאשר/ת הגעה</div>
+                <div class="btn ghost" style="margin-top:7px">✕ לא אוכל להגיע</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">1. אישור הגעה</div>
+        <p style="font-size:15.5px;margin-top:12px">מצורף אוטומטית לכל תזכורת. <b>"מאשר/ת הגעה"</b>
+          מעביר את האימון ל"אושר" אצלך ומציע למתאמן <b>"הוספה ליומן"</b> של הטלפון.
+          <b>"לא אוכל להגיע"</b> מבטל את האימון עם הסיבה "ביטל/ה דרך הקישור", כדי שתראה מיד שהשעה
+          התפנתה. הוא יכול גם לשנות את תשובתו אחר כך.</p>
+      </div>
+
+      <div>
+        <div class="phone" style="position:static">
+          <div class="screen" style="height:470px">
+            <div class="center-screen" style="justify-content:flex-start;padding-top:24px">
+              <div style="font-size:11px;color:var(--muted)">תשלום לדנה</div>
+              <div style="font-size:15px;font-weight:800;margin-top:3px">שלום נועה</div>
+              <div class="hero-money" style="width:100%;margin-top:14px">
+                <span>סכום לתשלום</span><b class="nums">₪360</b>
+                <div class="sm">על 2 אימונים</div>
+              </div>
+              <div style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:13px;overflow:hidden">
+                <div class="set-row"><span>אימון · 31 באוג׳</span><b class="nums">₪180</b></div>
+                <div class="set-row"><span>אימון · 3 בספט׳</span><b class="nums">₪180</b></div>
+              </div>
+              <div style="width:100%;margin-top:12px">
+                <div style="font-size:10px;font-weight:800;color:var(--muted);margin-bottom:6px">אמצעי תשלום</div>
+                <div class="slots" style="grid-template-columns:repeat(2,1fr)">
+                  <div>מזומן</div><div class="on">ביט</div><div>העברה</div><div>אשראי</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">2. תשלום</div>
+        <p style="font-size:15.5px;margin-top:12px">המתאמן רואה את הסכום הכולל ופירוט שורה־שורה של
+          האימונים שלא שולמו. אם אין חוב — "אין חוב פתוח".</p>
+        <div class="warn"><p><b>לתשומת לבך:</b> המסך מציג את החוב בלבד — הסליקה עדיין לא מחוברת,
+          וכתוב בו במפורש "הדגמה בלבד". השימוש הנכון בו הוא כתחליף שקוף ל"תזכיר לי כמה אני חייב";
+          את הכסף גובים במזומן, ביט או העברה, ומסמנים באפליקציה.</p></div>
+      </div>
+
+      <div>
+        <div class="phone" style="position:static">
+          <div class="screen" style="height:470px">
+            <div class="center-screen">
+              <div class="circle" style="background:var(--court-tint);color:var(--court);font-size:30px">✓</div>
+              <div style="font-size:21px;font-weight:800">האימון נקבע!</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:5px">נועה, שמרנו לך מקום אצל דנה.</div>
+              <div style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;
+                padding:14px;text-align:center;margin-top:16px">
+                <div style="font-size:14px;font-weight:800">יום ה׳, 10 בספטמבר</div>
+                <div class="nums" style="font-size:26px;font-weight:800;color:var(--court);margin-top:3px">10:00</div>
+                <div style="font-size:11px;color:var(--muted)">60 דקות</div>
+              </div>
+              <div style="font-size:10px;color:var(--muted);margin-top:14px">🕐 המאמן יאשר את האימון
+                בהודעה למספר שהשארת</div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">3. קביעת אימון</div>
+        <p style="font-size:15.5px;margin-top:12px">קישור ההזמנות הציבורי שלך. המתאמן רואה את שמך,
+          אורך האימון והמחיר, בוחר יום מתוך שבועיים קדימה, בוחר שעה פנויה, ומשאיר שם וטלפון.
+          בסיום מוצג אישור עם התאריך והשעה.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ VERTICALS ============ -->
+  <section id="verticals">
+    <p class="eyebrow">התאמה לתחום</p>
+    <h2>פאדל מול כושר אישי — מה משתנה</h2>
+    <p>התחום נבחר פעם אחת בהקמת החשבון, והוא משנה את השפה ואת השדות בכל האפליקציה.</p>
+    <table>
+      <tr><th></th><th>מאמן פאדל</th><th>מאמן כושר אישי</th></tr>
+      <tr><td><b>איך קוראים למתאמן</b></td><td>שחקן / שחקנים</td><td>מתאמן / מתאמנים</td></tr>
+      <tr><td><b>סוגי אימון</b></td><td>פרטי, זוגי, קבוצתי</td><td>אישי, זוגי, קבוצה קטנה</td></tr>
+      <tr><td><b>שדות בכרטיס</b></td><td>רמת משחק, צד במגרש</td><td>מטרה, הערות ומגבלות</td></tr>
+      <tr><td><b>שדה מיקום באימון</b></td><td>כן — מגרש</td><td>לא</td></tr>
+      <tr><td><b>אורך אימון כברירת מחדל</b></td><td>60 דקות</td><td>50 דקות</td></tr>
+      <tr><td><b>סיבות ביטול מוכנות</b></td><td>מזג אוויר · המגרש לא זמין · המתאמן ביטל · המאמן ביטל</td>
+        <td>המתאמן ביטל · המאמן ביטל · חדר הכושר סגור</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ ROUTINE ============ -->
+  <section id="routine">
+    <p class="eyebrow">איך זה נראה בפועל</p>
+    <h2>שגרת עבודה מומלצת</h2>
+    <div class="grid2">
+      <div class="card"><div class="icon">☀️</div><h4>בבוקר · דקה</h4>
+        <p>נכנסים למסך "היום", שולחים את כל התזכורות שמחכות ברשימה, ומסתכלים מי עוד לא אישר.</p></div>
+      <div class="card"><div class="icon">✅</div><h4>אחרי כל אימון · 5 שניות</h4>
+        <p>פותחים את האימון ומסמנים "סמן כשולם" אם שולם על המקום. ההרגל הזה חוסך את כל עבודת
+          הגבייה בסוף החודש.</p></div>
+      <div class="card"><div class="icon">📅</div><h4>בסוף השבוע · 5 דקות</h4>
+        <p>נכנסים ל"כסף" ושולחים בקשות תשלום בגבייה המרוכזת. אחר כך משלימים ביומן את השבוע הבא —
+          למי שמתאמן בשעה קבועה מסמנים "חוזר כל שבוע" ומסיימים 12 שבועות בבת אחת.</p></div>
+      <div class="card"><div class="icon">📊</div><h4>בסוף החודש · 2 דקות</h4>
+        <p>נכנסים ל"דוחות" ובוחרים "החודש". אם אחוז הגבייה נמוך — סימן שכדאי לבקש תשלום מוקדם
+          יותר ולא לחכות לסוף החודש.</p></div>
+      <div class="card"><div class="icon">🙋</div><h4>כשמצטרף מתאמן חדש</h4>
+        <p>פותחים לו כרטיס עם טלפון ומחיר, ושולחים את קישור קביעת התורים כדי שיקבע את האימון
+          הראשון בעצמו.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section id="faq">
+    <p class="eyebrow">שאלות נפוצות</p>
+    <h2>שאלות שחוזרות</h2>
+    <div class="grid2">
+      <div class="card"><h4>שכחתי לסמן אימון כשולם — הוא ייעלם?</h4>
+        <p>לא. הוא ימשיך להופיע בחובות עד שתסמן אותו, בכל רגע — ממסך הכסף, מכרטיס המתאמן או
+          מהאימון עצמו.</p></div>
+      <div class="card"><h4>מה קורה כשמסמנים "שולם" מכרטיס המתאמן?</h4>
+        <p>כל האימונים שלא שולמו של המתאמן מסומנים יחד, בסכום אחד. אין צורך לסמן אחד־אחד.</p></div>
+      <div class="card"><h4>המתאמן יכול לראות מתאמנים אחרים או הכנסות?</h4>
+        <p>לא. הקישורים אישיים ומציגים אך ורק את המידע של אותו מתאמן — האימון שלו או החוב שלו.</p></div>
+      <div class="card"><h4>ביטלתי אימון בטעות. אפשר להחזיר?</h4>
+        <p>כן. אם המתאמן פותח שוב את קישור האישור ולוחץ "מאשר/ת הגעה", האימון חוזר ל"אושר" —
+          בתנאי שהשעה עדיין פנויה ביומן.</p></div>
+      <div class="card"><h4>שיניתי תבנית הודעה ומשהו נשבר</h4>
+        <p>בדוק שהמשתנים בסוגריים המסולסלים נשארו בדיוק כמו שהם. אם נמחקו — העתק בחזרה את
+          הנוסח המקורי מפרק "תבניות הודעה".</p></div>
+      <div class="card"><h4>אני עובד גם בפאדל וגם בכושר</h4>
+        <p>כרגע כל חשבון מוגדר לתחום אחד. בחר את התחום שבו רוב האימונים שלך.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ LIMITS ============ -->
+  <section id="limits">
+    <p class="eyebrow">שקיפות</p>
+    <h2>מה עוד לא עובד בגרסה הזו</h2>
+    <p>כדי שלא תחפש דברים שלא קיימים:</p>
+    <ul class="plain">
+      <li><b>סליקת אשראי אמיתית.</b> מסך התשלום מציג את החוב אבל לא מחייב בפועל. הכסף נגבה מחוץ
+        לאפליקציה ומסומן בה.</li>
+      <li><b>מכירת כרטיסיות מהאפליקציה.</b> כרטיסייה קיימת מוצגת ומתעדכנת, אבל אין מסך שממנו
+        מוכרים כרטיסייה חדשה.</li>
+      <li><b>סימון "הגיע / לא הגיע".</b> אחוז ההגעה בדוחות יישאר על 100% עד שיתווסף מסך נוכחות.</li>
+      <li><b>תזכורות אוטומטיות לגמרי.</b> בגרסה הזו התזכורות מרוכזות בשבילך ונשלחות בלחיצה אחת,
+        דרך וואטסאפ שלך ובאישורך. המתגים במקטע "תזכורות" בהגדרות הם תצוגה בלבד.</li>
+      <li><b>שינוי או מחיקת מתאמן</b> מתוך האפליקציה.</li>
+      <li><b>עריכת מחיר ברירת המחדל</b> מההגדרות — הוא נקבע בהקמה. עד אז אפשר לשנות מחיר בכל אימון
+        ובכל כרטיס מתאמן בנפרד.</li>
+      <li><b>צוות ומאמנים נוספים.</b> האפליקציה בנויה למאמן עצמאי אחד, בלי תפקידי מנהל או מכון.</li>
+    </ul>
+  </section>
+
+</div>
+
+<footer>
+  <div><b>CoachOS</b> — ניהול אימונים, תשלומים ותזכורות מהטלפון</div>
+  <div style="margin-top:6px">המדריך מתייחס לגרסת ההדגמה הנוכחית · <a href="#top">חזרה למעלה</a></div>
+</footer>
+
+</body>
+</html>
