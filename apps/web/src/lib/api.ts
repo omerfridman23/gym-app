@@ -55,6 +55,10 @@ export interface UpdateCoachInput {
   reminderHoursBefore?: number;
   cancellationPolicy?: string;
   templates?: { reminder?: string; debt?: string };
+  bookingSlug?: string | null;
+  bookingEnabled?: boolean;
+  bookingStartHour?: number;
+  bookingEndHour?: number;
 }
 
 export interface CoachProfile {
@@ -67,6 +71,10 @@ export interface CoachProfile {
   cancellationPolicy: string;
   templates: { reminder?: string; debt?: string };
   onboarded: boolean;
+  bookingSlug: string | null;
+  bookingEnabled: boolean;
+  bookingStartHour: number;
+  bookingEndHour: number;
 }
 
 // --- Raw API row shapes (dates are ISO strings, money is agorot) ---
@@ -254,6 +262,33 @@ export interface PublicPayInfo {
   totalAgorot: number;
 }
 
+export interface PublicBookingSlot {
+  startsAt: string;
+  timeLocal: string;
+}
+
+export interface PublicBookingDay {
+  date: string;
+  slots: PublicBookingSlot[];
+}
+
+export interface PublicBookingInfo {
+  coachName: string;
+  vertical: 'padel' | 'fitness' | null;
+  durationMin: number;
+  priceAgorot: number;
+  days: PublicBookingDay[];
+}
+
+export interface PublicBookingResult {
+  coachName: string;
+  clientFirstName: string;
+  startsAt: string;
+  date: string;
+  timeLocal: string;
+  durationMin: number;
+}
+
 export const publicApi = {
   async getConfirmInfo(token: string): Promise<PublicConfirmInfo> {
     const { info } = await request<{ info: PublicConfirmInfo }>(`/public/confirm/${token}`);
@@ -271,6 +306,22 @@ export const publicApi = {
   async getPayInfo(clientId: string): Promise<PublicPayInfo> {
     const { info } = await request<{ info: PublicPayInfo }>(`/public/pay/${clientId}`);
     return info;
+  },
+
+  async getBookingInfo(slug: string): Promise<PublicBookingInfo> {
+    const { info } = await request<{ info: PublicBookingInfo }>(`/public/book/${slug}`);
+    return info;
+  },
+
+  async createBooking(
+    slug: string,
+    input: { startsAt: string; name: string; phone: string },
+  ): Promise<PublicBookingResult> {
+    const { booking } = await request<{ booking: PublicBookingResult }>(`/public/book/${slug}`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    return booking;
   },
 };
 

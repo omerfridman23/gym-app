@@ -21,10 +21,15 @@ export class HealthRepository {
       await this.pool.query('SELECT 1');
       return { reachable: true, latencyMs: Date.now() - startedAt };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown database error';
+      const message =
+        error instanceof Error ? error.message : 'unknown database error';
       this.logger.error(`Database probe failed: ${message}`);
 
-      return { reachable: false, latencyMs: Date.now() - startedAt, error: message };
+      return {
+        reachable: false,
+        latencyMs: Date.now() - startedAt,
+        error: message,
+      };
     }
   }
 }

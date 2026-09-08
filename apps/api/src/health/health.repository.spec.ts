@@ -15,7 +15,10 @@ describe('HealthRepository', () => {
     const query = vi.fn().mockResolvedValue({ rows: [{ '?column?': 1 }] });
     const repo = new HealthRepository({ query } as never);
 
-    await expect(repo.probe()).resolves.toEqual({ reachable: true, latencyMs: 0 });
+    await expect(repo.probe()).resolves.toEqual({
+      reachable: true,
+      latencyMs: 0,
+    });
     expect(query).toHaveBeenCalledWith('SELECT 1');
   });
 
@@ -25,7 +28,10 @@ describe('HealthRepository', () => {
     });
     const repo = new HealthRepository({ query } as never);
 
-    await expect(repo.probe()).resolves.toEqual({ reachable: true, latencyMs: 37 });
+    await expect(repo.probe()).resolves.toEqual({
+      reachable: true,
+      latencyMs: 37,
+    });
   });
 
   it('returns an unreachable report instead of throwing an Error', async () => {

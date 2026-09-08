@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "start": "node ./scripts/write-env.mjs && serve -s dist -l tcp://0.0.0.0:$PORT",
+    "start": "node ./scripts/start.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run"

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard.js';
 import { CurrentCoach } from '../auth/current-coach.decorator.js';
 import type { Session } from '../generated/prisma/client.js';
@@ -28,7 +37,10 @@ export class SessionsController {
     @Body() body: CreateSessionInput,
   ): Promise<{ sessions: Session[] }> {
     return {
-      sessions: await this.sessionsService.create(coachId, body ?? ({} as CreateSessionInput)),
+      sessions: await this.sessionsService.create(
+        coachId,
+        body ?? ({} as CreateSessionInput),
+      ),
     };
   }
 
@@ -38,6 +50,8 @@ export class SessionsController {
     @Param('id') id: string,
     @Body() body: UpdateSessionInput,
   ): Promise<{ session: Session }> {
-    return { session: await this.sessionsService.update(coachId, id, body ?? {}) };
+    return {
+      session: await this.sessionsService.update(coachId, id, body ?? {}),
+    };
   }
 }

@@ -55,6 +55,12 @@ model Coach {
   reminderHoursBefore Int       @default(24) @map("reminder_hours_before")
   cancellationPolicy  String    @default("") @map("cancellation_policy")
   templates           Json      @default("{}")
+  // Public self-booking page (/book/:slug). Off until the coach picks a slug
+  // and flips the switch; slots are offered between the two local hours.
+  bookingSlug         String?   @unique @map("booking_slug")
+  bookingEnabled      Boolean   @default(false) @map("booking_enabled")
+  bookingStartHour    Int       @default(8) @map("booking_start_hour")
+  bookingEndHour      Int       @default(21) @map("booking_end_hour")
   onboardedAt         DateTime? @map("onboarded_at") @db.Timestamptz(6)
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   deletedAt           DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -73,6 +79,7 @@ model Client {
   coachId     String    @map("coach_id") @db.Uuid
   name        String
   phone       String
+  normalizedPhone String? @map("normalized_phone")
   // Vertical-specific fields (level/side for padel, goal/notes for fitness),
   // keyed by VERTICAL_CONFIG.clientFields — schemaless by design.
   fields      Json      @default("{}")
@@ -87,6 +94,7 @@ model Client {
   payments Payment[]
 
   @@index([coachId])
+  @@index([coachId, normalizedPhone])
   @@map("clients")
 }
 

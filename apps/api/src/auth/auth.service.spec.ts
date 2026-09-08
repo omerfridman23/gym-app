@@ -1,4 +1,9 @@
-import { BadRequestException, HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { JwtService } from '@nestjs/jwt';
 import { createHash } from 'node:crypto';
@@ -51,8 +56,14 @@ function makeRepo(): RepoMock {
 
 describe('AuthService', () => {
   let repo: RepoMock;
-  let jwt: { signAsync: ReturnType<typeof vi.fn>; verifyAsync: ReturnType<typeof vi.fn> };
-  let sms: { sendOtp: ReturnType<typeof vi.fn> };
+  let jwt: {
+    signAsync: ReturnType<typeof vi.fn>;
+    verifyAsync: ReturnType<typeof vi.fn>;
+  };
+  let sms: {
+    sendOtp: ReturnType<typeof vi.fn>;
+    verifyOtp?: ReturnType<typeof vi.fn>;
+  };
   let service: AuthService;
   let config: { get: ReturnType<typeof vi.fn> };
 
@@ -74,7 +85,10 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     repo = makeRepo();
-    jwt = { signAsync: vi.fn().mockResolvedValue('signed.jwt.token'), verifyAsync: vi.fn() };
+    jwt = {
+      signAsync: vi.fn().mockResolvedValue('signed.jwt.token'),
+      verifyAsync: vi.fn(),
+    };
     sms = { sendOtp: vi.fn().mockResolvedValue(undefined) };
     service = makeService();
   });
@@ -111,8 +125,12 @@ describe('AuthService', () => {
     });
 
     it('rejects null/undefined without throwing TypeError', () => {
-      expect(() => service.normalizePhone(undefined as unknown as string)).toThrow(BadRequestException);
-      expect(() => service.normalizePhone(null as unknown as string)).toThrow(BadRequestException);
+      expect(() =>
+        service.normalizePhone(undefined as unknown as string),
+      ).toThrow(BadRequestException);
+      expect(() => service.normalizePhone(null as unknown as string)).toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -121,7 +139,9 @@ describe('AuthService', () => {
       await service.requestOtp('050-123-4567');
 
       expect(repo.countRecentOtpRequests).toHaveBeenCalledTimes(1);
-      expect(repo.countRecentOtpRequests.mock.calls[0][0]).toBe('+972501234567');
+      expect(repo.countRecentOtpRequests.mock.calls[0][0]).toBe(
+        '+972501234567',
+      );
     });
 
     it('uses a 15 minute rate-limit window', async () => {
@@ -129,8 +149,12 @@ describe('AuthService', () => {
       await service.requestOtp('0501234567');
       const since = repo.countRecentOtpRequests.mock.calls[0][1] as Date;
 
-      expect(since.getTime()).toBeGreaterThanOrEqual(before - OTP_REQUEST_WINDOW_MS - 50);
-      expect(since.getTime()).toBeLessThanOrEqual(Date.now() - OTP_REQUEST_WINDOW_MS + 50);
+      expect(since.getTime()).toBeGreaterThanOrEqual(
+        before - OTP_REQUEST_WINDOW_MS - 50,
+      );
+      expect(since.getTime()).toBeLessThanOrEqual(
+        Date.now() - OTP_REQUEST_WINDOW_MS + 50,
+      );
     });
 
     it('allows the 3rd request in the window', async () => {
@@ -142,16 +166,22 @@ describe('AuthService', () => {
     it('throws 429 on the 4th request in the window and sends no SMS', async () => {
       repo.countRecentOtpRequests.mockResolvedValue(3);
 
-      const error = await service.requestOtp('0501234567').catch((e: unknown) => e);
+      const error = await service
+        .requestOtp('0501234567')
+        .catch((e: unknown) => e);
 
       expect(error).toBeInstanceOf(HttpException);
-      expect((error as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+      expect((error as HttpException).getStatus()).toBe(
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
       expect(repo.createOtp).not.toHaveBeenCalled();
       expect(sms.sendOtp).not.toHaveBeenCalled();
     });
 
     it('rejects an invalid phone before consuming rate-limit budget', async () => {
-      await expect(service.requestOtp('0401234567')).rejects.toThrow(BadRequestException);
+      await expect(service.requestOtp('0401234567')).rejects.toThrow(
+        BadRequestException,
+      );
       expect(repo.countRecentOtpRequests).not.toHaveBeenCalled();
       expect(repo.createOtp).not.toHaveBeenCalled();
     });
@@ -167,7 +197,11 @@ describe('AuthService', () => {
     it('persists only the sha256 hash of "phone:code", never the code itself', async () => {
       await service.requestOtp('0501234567');
 
-      const [storedPhone, storedHash] = repo.createOtp.mock.calls[0] as [string, string, Date];
+      const [storedPhone, storedHash] = repo.createOtp.mock.calls[0] as [
+        string,
+        string,
+        Date,
+      ];
       const [, sentCode] = sms.sendOtp.mock.calls[0] as [string, string];
 
       expect(storedPhone).toBe('+972501234567');
@@ -180,8 +214,12 @@ describe('AuthService', () => {
       await service.requestOtp('0501234567');
       const expiresAt = repo.createOtp.mock.calls[0][2] as Date;
 
-      expect(expiresAt.getTime()).toBeGreaterThanOrEqual(before + OTP_TTL_MS - 50);
-      expect(expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + OTP_TTL_MS + 50);
+      expect(expiresAt.getTime()).toBeGreaterThanOrEqual(
+        before + OTP_TTL_MS - 50,
+      );
+      expect(expiresAt.getTime()).toBeLessThanOrEqual(
+        Date.now() + OTP_TTL_MS + 50,
+      );
     });
 
     it('skips SMS for the local 1111 shortcut', async () => {
@@ -193,7 +231,9 @@ describe('AuthService', () => {
 
     it('still rejects 1111 in production', async () => {
       service = makeService('production');
-      await expect(service.requestOtp('1111')).rejects.toThrow(BadRequestException);
+      await expect(service.requestOtp('1111')).rejects.toThrow(
+        BadRequestException,
+      );
       expect(sms.sendOtp).not.toHaveBeenCalled();
     });
 
@@ -239,26 +279,34 @@ describe('AuthService', () => {
     it.each(['', '12345', '1234567', 'abcdef', '12 34 56', '12345a'])(
       'rejects malformed code %j without hitting the database',
       async (code) => {
-        await expect(service.verifyOtp(phone, code)).rejects.toThrow(UnauthorizedException);
+        await expect(service.verifyOtp(phone, code)).rejects.toThrow(
+          UnauthorizedException,
+        );
         expect(repo.findActiveOtp).not.toHaveBeenCalled();
       },
     );
 
     it('rejects an invalid phone before looking anything up', async () => {
-      await expect(service.verifyOtp('0401234567', '123456')).rejects.toThrow(BadRequestException);
+      await expect(service.verifyOtp('0401234567', '123456')).rejects.toThrow(
+        BadRequestException,
+      );
       expect(repo.findActiveOtp).not.toHaveBeenCalled();
     });
 
     it('rejects when there is no active code', async () => {
       repo.findActiveOtp.mockResolvedValue(null);
-      await expect(service.verifyOtp(phone, '123456')).rejects.toThrow(UnauthorizedException);
+      await expect(service.verifyOtp(phone, '123456')).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(repo.consumeOtp).not.toHaveBeenCalled();
     });
 
     it('rejects when the code is already at the attempt ceiling', async () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp({ attempts: 5 }));
 
-      await expect(service.verifyOtp(phone, '123456')).rejects.toThrow(UnauthorizedException);
+      await expect(service.verifyOtp(phone, '123456')).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(repo.recordFailedAttempt).not.toHaveBeenCalled();
       expect(repo.consumeOtp).not.toHaveBeenCalled();
     });
@@ -267,7 +315,9 @@ describe('AuthService', () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp());
       repo.recordFailedAttempt.mockResolvedValue(1);
 
-      await expect(service.verifyOtp(phone, '000000')).rejects.toThrow(UnauthorizedException);
+      await expect(service.verifyOtp(phone, '000000')).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(repo.recordFailedAttempt).toHaveBeenCalledWith('otp-1');
       expect(repo.consumeOtp).not.toHaveBeenCalled();
       expect(jwt.signAsync).not.toHaveBeenCalled();
@@ -277,16 +327,22 @@ describe('AuthService', () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp({ attempts: 4 }));
       repo.recordFailedAttempt.mockResolvedValue(5);
 
-      const error = await service.verifyOtp(phone, '000000').catch((e: unknown) => e);
+      const error = await service
+        .verifyOtp(phone, '000000')
+        .catch((e: unknown) => e);
 
       expect(error).toBeInstanceOf(UnauthorizedException);
-      expect((error as UnauthorizedException).message).toBe('הקוד פג תוקף, בקשו קוד חדש');
+      expect((error as UnauthorizedException).message).toBe(
+        'הקוד פג תוקף, בקשו קוד חדש',
+      );
     });
 
     it('hashes with the normalized phone, so 05x and +972 forms verify identically', async () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp());
 
-      await expect(service.verifyOtp('+972-50-123-4567', '123456')).resolves.toMatchObject({
+      await expect(
+        service.verifyOtp('+972-50-123-4567', '123456'),
+      ).resolves.toMatchObject({
         token: 'signed.jwt.token',
       });
       expect(repo.findActiveOtp).toHaveBeenCalledWith(e164);
@@ -314,7 +370,9 @@ describe('AuthService', () => {
     it('consumes the code before issuing the token, so it cannot be replayed', async () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp());
       const order: string[] = [];
-      repo.consumeOtp.mockImplementation(async () => void order.push('consume'));
+      repo.consumeOtp.mockImplementation(
+        async () => void order.push('consume'),
+      );
       jwt.signAsync.mockImplementation(async () => {
         order.push('sign');
         return 'signed.jwt.token';
@@ -325,12 +383,15 @@ describe('AuthService', () => {
       expect(order).toEqual(['consume', 'sign']);
     });
 
-    it('logs in the local Omer coach for code 1111 without an SMS', async () => {
+    it('logs in the local development coach for code 1111 without an SMS', async () => {
       const result = await service.verifyOtp('0501234567', '1111');
 
       expect(repo.findActiveOtp).not.toHaveBeenCalled();
       expect(repo.findOrCreateCoach).not.toHaveBeenCalled();
-      expect(repo.findOrCreateDevCoach).toHaveBeenCalledWith(DEV_COACH_PHONE, DEV_COACH_NAME);
+      expect(repo.findOrCreateDevCoach).toHaveBeenCalledWith(
+        DEV_COACH_PHONE,
+        DEV_COACH_NAME,
+      );
       expect(jwt.signAsync).toHaveBeenCalledWith({ sub: 'coach-1' });
       expect(result.coach).toMatchObject({
         phone: DEV_COACH_PHONE,
@@ -339,7 +400,7 @@ describe('AuthService', () => {
       });
     });
 
-    it('logs in the local Omer coach when the phone field is 1111', async () => {
+    it('logs in the local development coach when the phone field is 1111', async () => {
       await expect(service.verifyOtp('1111', '1111')).resolves.toMatchObject({
         token: 'signed.jwt.token',
         coach: { name: DEV_COACH_NAME, onboarded: true },
@@ -348,7 +409,9 @@ describe('AuthService', () => {
 
     it('does not accept the 1111 shortcut in production', async () => {
       service = makeService('production');
-      await expect(service.verifyOtp('0501234567', '1111')).rejects.toThrow(UnauthorizedException);
+      await expect(service.verifyOtp('0501234567', '1111')).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(repo.findOrCreateDevCoach).not.toHaveBeenCalled();
     });
 
@@ -363,9 +426,34 @@ describe('AuthService', () => {
     it('never leaks the expected code in the error message', async () => {
       repo.findActiveOtp.mockResolvedValue(activeOtp());
 
-      const error = await service.verifyOtp(phone, '999999').catch((e: unknown) => e);
+      const error = await service
+        .verifyOtp(phone, '999999')
+        .catch((e: unknown) => e);
 
       expect((error as Error).message).not.toContain('123456');
+    });
+
+    it('uses provider-hosted verification when the provider supports it', async () => {
+      repo.findActiveOtp.mockResolvedValue(activeOtp({ codeHash: 'provider-owned' }));
+      sms.verifyOtp = vi.fn().mockResolvedValue(true);
+
+      await expect(service.verifyOtp(phone, '654321')).resolves.toMatchObject({
+        token: 'signed.jwt.token',
+      });
+
+      expect(sms.verifyOtp).toHaveBeenCalledWith(e164, '654321');
+      expect(repo.consumeOtp).toHaveBeenCalledWith('otp-1');
+    });
+
+    it('rejects a code declined by provider-hosted verification', async () => {
+      repo.findActiveOtp.mockResolvedValue(activeOtp());
+      sms.verifyOtp = vi.fn().mockResolvedValue(false);
+
+      await expect(service.verifyOtp(phone, '654321')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(repo.recordFailedAttempt).toHaveBeenCalledWith('otp-1');
+      expect(jwt.signAsync).not.toHaveBeenCalled();
     });
   });
 
@@ -377,7 +465,9 @@ describe('AuthService', () => {
 
     it('throws Unauthorized when verification fails', async () => {
       jwt.verifyAsync.mockRejectedValue(new Error('invalid signature'));
-      await expect(service.verifyToken('bad')).rejects.toThrow(UnauthorizedException);
+      await expect(service.verifyToken('bad')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('does not surface the underlying jwt error to the caller', async () => {
@@ -390,7 +480,11 @@ describe('AuthService', () => {
   describe('toSession', () => {
     it('marks a coach with onboardedAt as onboarded', () => {
       const session = service.toSession(
-        coachRow({ onboardedAt: new Date(), vertical: 'padel', name: 'דני' }) as never,
+        coachRow({
+          onboardedAt: new Date(),
+          vertical: 'padel',
+          name: 'דני',
+        }) as never,
       );
       expect(session).toEqual({
         id: 'coach-1',
@@ -407,9 +501,18 @@ describe('AuthService', () => {
 
     it('does not expose fields beyond the session contract', () => {
       const session = service.toSession(
-        coachRow({ templates: { a: 1 }, cancellationPolicy: 'secret' }) as never,
+        coachRow({
+          templates: { a: 1 },
+          cancellationPolicy: 'secret',
+        }) as never,
       );
-      expect(Object.keys(session).sort()).toEqual(['id', 'name', 'onboarded', 'phone', 'vertical']);
+      expect(Object.keys(session).sort()).toEqual([
+        'id',
+        'name',
+        'onboarded',
+        'phone',
+        'vertical',
+      ]);
     });
   });
 });

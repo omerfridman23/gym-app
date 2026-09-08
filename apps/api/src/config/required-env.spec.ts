@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { findMissingEnv, formatMissingEnv, validateEnv } from './required-env.js';
+import {
+  findMissingEnv,
+  formatMissingEnv,
+  validateEnv,
+} from './required-env.js';
 
 const COMPLETE = {
   DATABASE_URL: 'postgresql://app_user:pw@host/db',
@@ -15,7 +19,10 @@ describe('required env', () => {
   });
 
   it('names every missing variable at once, not just the first', () => {
-    const missing = findMissingEnv({ DATABASE_URL: COMPLETE.DATABASE_URL, NODE_ENV: 'production' });
+    const missing = findMissingEnv({
+      DATABASE_URL: COMPLETE.DATABASE_URL,
+      NODE_ENV: 'production',
+    });
 
     expect(missing.map((v) => v.key)).toEqual([
       'DATABASE_URL_UNPOOLED',
@@ -34,7 +41,9 @@ describe('required env', () => {
   it('does not demand WEB_ORIGIN outside production', () => {
     const { WEB_ORIGIN: _omitted, ...withoutOrigin } = COMPLETE;
 
-    expect(findMissingEnv({ ...withoutOrigin, NODE_ENV: 'development' })).toEqual([]);
+    expect(
+      findMissingEnv({ ...withoutOrigin, NODE_ENV: 'development' }),
+    ).toEqual([]);
   });
 
   it('still demands the database and signing key outside production', () => {
@@ -48,7 +57,9 @@ describe('required env', () => {
   });
 
   it('explains what each missing variable is for', () => {
-    const message = formatMissingEnv(findMissingEnv({ NODE_ENV: 'production' }));
+    const message = formatMissingEnv(
+      findMissingEnv({ NODE_ENV: 'production' }),
+    );
 
     expect(message).toContain('JWT_SECRET: signing key for the session cookie');
     expect(message).toContain('DATABASE_URL_UNPOOLED');
@@ -60,7 +71,9 @@ describe('required env', () => {
   });
 
   it('leaks no secret values into the error message', () => {
-    const message = formatMissingEnv(findMissingEnv({ ...COMPLETE, JWT_SECRET: '' }));
+    const message = formatMissingEnv(
+      findMissingEnv({ ...COMPLETE, JWT_SECRET: '' }),
+    );
 
     expect(message).not.toContain(COMPLETE.DATABASE_URL);
   });

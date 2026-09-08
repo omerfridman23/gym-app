@@ -65,6 +65,11 @@ export interface CoachSettings {
   reminderHoursBefore: number
   cancellationPolicy: string
   templates: { reminder: string; debt: string }
+  /** Public self-booking page (/book/:slug). */
+  bookingSlug: string | null
+  bookingEnabled: boolean
+  bookingStartHour: number
+  bookingEndHour: number
 }
 
 export interface Dataset {

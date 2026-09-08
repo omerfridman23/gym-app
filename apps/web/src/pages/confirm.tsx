@@ -6,6 +6,7 @@ import { CalendarCheck, CalendarPlus, CalendarX, Check, Clock, MapPin, X } from 
 import { publicApi, type PublicConfirmInfo } from '@/lib/api'
 import { addMinutesToTime, formatHebrewDate, toISODate } from '@/lib/format'
 import { downloadSessionIcs } from '@/lib/ics'
+import { PublicShell } from '@/components/public-shell'
 
 export default function ConfirmPage() {
   const params = useParams<{ id: string }>()
@@ -191,10 +192,3 @@ function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactN
   )
 }
 
-function PublicShell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center bg-canvas px-5 py-10">
-      <div className="w-full">{children}</div>
-    </main>
-  )
-}

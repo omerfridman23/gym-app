@@ -35,7 +35,9 @@ describe('ClientsController', () => {
   describe('list', () => {
     it('wraps the coach clients in a { clients } envelope', async () => {
       const { controller } = makeController();
-      await expect(controller.list(OWNER)).resolves.toEqual({ clients: [clientRow()] });
+      await expect(controller.list(OWNER)).resolves.toEqual({
+        clients: [clientRow()],
+      });
     });
 
     it('asks the service for the authenticated coach, never a body field', async () => {
@@ -48,7 +50,9 @@ describe('ClientsController', () => {
   describe('create', () => {
     it('wraps the created row in a { client } envelope', async () => {
       const { controller } = makeController();
-      await expect(controller.create(OWNER, { name: 'חדש', phone: '050' })).resolves.toEqual({
+      await expect(
+        controller.create(OWNER, { name: 'חדש', phone: '050' }),
+      ).resolves.toEqual({
         client: clientRow({ name: 'חדש' }),
       });
     });
@@ -77,7 +81,9 @@ describe('ClientsController', () => {
   describe('update', () => {
     it('wraps the updated row in a { client } envelope', async () => {
       const { controller } = makeController();
-      await expect(controller.update(OWNER, 'client-1', { name: 'עודכן' })).resolves.toEqual({
+      await expect(
+        controller.update(OWNER, 'client-1', { name: 'עודכן' }),
+      ).resolves.toEqual({
         client: clientRow({ name: 'עודכן' }),
       });
     });
@@ -98,7 +104,9 @@ describe('ClientsController', () => {
   describe('remove', () => {
     it('soft-deletes and returns nothing (204)', async () => {
       const { controller, softDelete } = makeController();
-      await expect(controller.remove(OWNER, 'client-1')).resolves.toBeUndefined();
+      await expect(
+        controller.remove(OWNER, 'client-1'),
+      ).resolves.toBeUndefined();
       expect(softDelete).toHaveBeenCalledWith(OWNER, 'client-1');
     });
 

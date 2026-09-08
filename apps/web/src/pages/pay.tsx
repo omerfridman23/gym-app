@@ -6,6 +6,7 @@ import { Check, CheckCircle2, ShieldCheck } from 'lucide-react'
 import { publicApi, type PublicPayInfo } from '@/lib/api'
 import { formatShekel, formatHebrewDateShort, toISODate } from '@/lib/format'
 import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/mock-data'
+import { PublicShell } from '@/components/public-shell'
 
 export default function PayPage() {
   const params = useParams<{ id: string }>()
@@ -27,7 +28,7 @@ export default function PayPage() {
 
   if (info === undefined) {
     return (
-      <PublicShell>
+      <PublicShell framed>
         <div className="flex justify-center">
           <span className="size-8 animate-pulse rounded-2xl bg-court" aria-label="טוען…" />
         </div>
@@ -37,7 +38,7 @@ export default function PayPage() {
 
   if (info === null) {
     return (
-      <PublicShell>
+      <PublicShell framed>
         <NotFound />
       </PublicShell>
     )
@@ -47,7 +48,7 @@ export default function PayPage() {
 
   if (total === 0 && !paid) {
     return (
-      <PublicShell>
+      <PublicShell framed>
         <div className="flex flex-col items-center text-center">
           <div className="flex size-16 items-center justify-center rounded-full bg-paid-tint">
             <CheckCircle2 className="size-9 text-paid" />
@@ -63,7 +64,7 @@ export default function PayPage() {
 
   if (paid) {
     return (
-      <PublicShell>
+      <PublicShell framed>
         <div className="flex flex-col items-center text-center">
           <div className="flex size-16 items-center justify-center rounded-full bg-paid-tint">
             <CheckCircle2 className="size-9 text-paid" />
@@ -78,7 +79,7 @@ export default function PayPage() {
   }
 
   return (
-    <PublicShell>
+    <PublicShell framed>
       <header className="text-center">
         <p className="text-sm font-semibold text-muted">תשלום ל{info.coachName}</p>
         <h1 className="mt-1 text-lg font-extrabold text-ink">שלום {info.clientFirstName}</h1>
@@ -142,15 +143,6 @@ export default function PayPage() {
   )
 }
 
-function PublicShell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-dvh justify-center bg-canvas md:items-center md:py-8">
-      <div className="flex min-h-dvh w-full max-w-md flex-col justify-center bg-paper px-5 py-10 md:min-h-[min(880px,calc(100dvh-4rem))] md:rounded-[2.25rem] md:shadow-frame md:ring-1 md:ring-black/5">
-        <div className="w-full">{children}</div>
-      </div>
-    </main>
-  )
-}
 
 function NotFound() {
   return (

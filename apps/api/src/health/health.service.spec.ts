@@ -2,9 +2,16 @@ import { describe, expect, it, vi } from 'vitest';
 import type { HealthRepository } from './health.repository.js';
 import { HealthService } from './health.service.js';
 
-function serviceWithProbe(probe: { reachable: boolean; latencyMs: number; error?: string }) {
+function serviceWithProbe(probe: {
+  reachable: boolean;
+  latencyMs: number;
+  error?: string;
+}) {
   const repo = { probe: vi.fn().mockResolvedValue(probe) };
-  return { service: new HealthService(repo as unknown as HealthRepository), repo };
+  return {
+    service: new HealthService(repo as unknown as HealthRepository),
+    repo,
+  };
 }
 
 describe('HealthService', () => {
@@ -14,12 +21,16 @@ describe('HealthService', () => {
     const report = await service.getReport();
 
     expect(report.status).toBe('ok');
-    expect(report.service).toBe('gym-app-api');
+    expect(report.service).toBe('coachos-api');
     expect(report.database).toEqual({ reachable: true, latencyMs: 12 });
   });
 
   it('reports degraded when the database is unreachable', async () => {
-    const { service } = serviceWithProbe({ reachable: false, latencyMs: 5000, error: 'ETIMEDOUT' });
+    const { service } = serviceWithProbe({
+      reachable: false,
+      latencyMs: 5000,
+      error: 'ETIMEDOUT',
+    });
 
     const report = await service.getReport();
 
@@ -32,7 +43,9 @@ describe('HealthService', () => {
 
     const report = await service.getReport();
 
-    expect(report.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(report.timestamp).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+    );
     expect(Number.isNaN(Date.parse(report.timestamp))).toBe(false);
   });
 
@@ -50,11 +63,14 @@ describe('HealthService', () => {
     const { service } = serviceWithProbe({
       reachable: false,
       latencyMs: 20,
-      error: 'password authentication failed for user "app_user" on host ep-xyz.eu-central-1.aws.neon.tech',
+      error:
+        'password authentication failed for user "app_user" on host ep-xyz.eu-central-1.aws.neon.tech',
     });
 
     const report = await service.getReport();
 
-    expect(JSON.stringify(report)).not.toMatch(/password authentication failed/);
+    expect(JSON.stringify(report)).not.toMatch(
+      /password authentication failed/,
+    );
   });
 });

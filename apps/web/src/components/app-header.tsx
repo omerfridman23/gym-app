@@ -1,3 +1,4 @@
+import { ThemeSwitcher } from './theme-switcher'
 import { VerticalSwitcher } from './vertical-switcher'
 
 export function AppHeader({
@@ -22,6 +23,7 @@ export function AppHeader({
         </div>
         <div className="flex shrink-0 items-center gap-2 pt-0.5">
           {action}
+          <ThemeSwitcher />
           <VerticalSwitcher />
         </div>
       </div>

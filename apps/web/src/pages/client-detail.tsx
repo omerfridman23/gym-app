@@ -21,6 +21,7 @@ import {
 import { fillTemplate } from '@/lib/templates'
 import { waLink, telLink } from '@/lib/whatsapp'
 import { PAYMENT_METHODS, type PaymentMethod, type Session } from '@/lib/mock-data'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -76,7 +77,8 @@ export default function ClientDetailPage() {
           >
             <ChevronRight className="size-6" />
           </button>
-          <p className="text-lg font-extrabold text-ink">{config.terms.client}</p>
+          <p className="flex-1 text-lg font-extrabold text-ink">{config.terms.client}</p>
+          <ThemeSwitcher />
         </div>
       </header>
 

@@ -31,7 +31,10 @@ describe('auth (e2e)', () => {
       .send({ phone, code })
       .expect(201);
 
-    expect(verified.body.coach).toMatchObject({ phone: toE164(phone), onboarded: false });
+    expect(verified.body.coach).toMatchObject({
+      phone: toE164(phone),
+      onboarded: false,
+    });
     ctx.track(verified.body.coach.id, phone);
 
     // The session must not be readable by client-side JavaScript.
@@ -62,19 +65,31 @@ describe('auth (e2e)', () => {
     const code = ctx.sms.codes.get(toE164(phone))!;
     expect(session.cookie).toContain('coach_session=');
 
-    await ctx.http().post('/api/auth/otp/verify').send({ phone, code }).expect(401);
+    await ctx
+      .http()
+      .post('/api/auth/otp/verify')
+      .send({ phone, code })
+      .expect(401);
   });
 
   it('refuses phone numbers that are not Israeli mobiles', async () => {
     for (const phone of ['', '123', '+15551234567', '05123', 'לא-טלפון']) {
-      await ctx.http().post('/api/auth/otp/request').send({ phone }).expect(400);
+      await ctx
+        .http()
+        .post('/api/auth/otp/request')
+        .send({ phone })
+        .expect(400);
     }
   });
 
   it('stops a phone after three codes in the window', async () => {
     const phone = randomIsraeliPhone();
     for (let i = 0; i < 3; i += 1) {
-      await ctx.http().post('/api/auth/otp/request').send({ phone }).expect(204);
+      await ctx
+        .http()
+        .post('/api/auth/otp/request')
+        .send({ phone })
+        .expect(204);
     }
 
     await ctx.http().post('/api/auth/otp/request').send({ phone }).expect(429);
@@ -101,7 +116,11 @@ describe('auth (e2e)', () => {
     it('answers /auth/me for a real session', async () => {
       const coach = await login(ctx);
 
-      const me = await ctx.http().get('/api/auth/me').set('Cookie', coach.cookie).expect(200);
+      const me = await ctx
+        .http()
+        .get('/api/auth/me')
+        .set('Cookie', coach.cookie)
+        .expect(200);
 
       expect(me.body.coach.id).toBe(coach.coachId);
     });
@@ -115,7 +134,9 @@ describe('auth (e2e)', () => {
         .set('Cookie', coach.cookie)
         .expect(204);
 
-      expect((out.headers['set-cookie'] as unknown as string[])[0]).toContain('coach_session=;');
+      expect((out.headers['set-cookie'] as unknown as string[])[0]).toContain(
+        'coach_session=;',
+      );
     });
   });
 });

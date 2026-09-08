@@ -60,16 +60,18 @@ describe('toE164Israel', () => {
 
 describe('resolveWebOrigin', () => {
   it('prefers the first configured value and trims trailing slashes', () => {
-    expect(resolveWebOrigin('https://app.example.com/')).toBe('https://app.example.com');
+    expect(resolveWebOrigin('https://app.example.com/')).toBe(
+      'https://app.example.com',
+    );
     expect(resolveWebOrigin(undefined, 'https://second.example.com')).toBe(
       'https://second.example.com',
     );
   });
 
   it('takes the first entry of a comma-separated CORS list', () => {
-    expect(resolveWebOrigin('https://a.example.com, https://b.example.com')).toBe(
-      'https://a.example.com',
-    );
+    expect(
+      resolveWebOrigin('https://a.example.com, https://b.example.com'),
+    ).toBe('https://a.example.com');
   });
 
   it('falls back to the dev web server when nothing is configured', () => {

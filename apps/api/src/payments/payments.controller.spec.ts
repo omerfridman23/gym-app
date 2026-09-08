@@ -18,21 +18,30 @@ function paymentRow(overrides: Record<string, unknown> = {}) {
 function makeController() {
   const list = vi.fn().mockResolvedValue([paymentRow()]);
   const create = vi.fn().mockResolvedValue(paymentRow());
-  const controller = new PaymentsController({ list, create } as unknown as PaymentsService);
+  const controller = new PaymentsController({
+    list,
+    create,
+  } as unknown as PaymentsService);
   return { controller, list, create };
 }
 
 describe('PaymentsController', () => {
   it('wraps the list in a { payments } envelope', async () => {
     const { controller, list } = makeController();
-    await expect(controller.list(OWNER)).resolves.toEqual({ payments: [paymentRow()] });
+    await expect(controller.list(OWNER)).resolves.toEqual({
+      payments: [paymentRow()],
+    });
     expect(list).toHaveBeenCalledWith(OWNER);
   });
 
   it('wraps a new payment in a { payment } envelope', async () => {
     const { controller } = makeController();
     await expect(
-      controller.create(OWNER, { clientId: 'client-1', amountAgorot: 18_000, method: 'cash' }),
+      controller.create(OWNER, {
+        clientId: 'client-1',
+        amountAgorot: 18_000,
+        method: 'cash',
+      }),
     ).resolves.toEqual({ payment: paymentRow() });
   });
 

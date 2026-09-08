@@ -9,7 +9,9 @@ export class RemindersController {
   constructor(private readonly remindersService: RemindersService) {}
 
   @Get('due')
-  async due(@CurrentCoach() coachId: string): Promise<{ reminders: DueReminder[] }> {
+  async due(
+    @CurrentCoach() coachId: string,
+  ): Promise<{ reminders: DueReminder[] }> {
     return { reminders: await this.remindersService.listDue(coachId) };
   }
 

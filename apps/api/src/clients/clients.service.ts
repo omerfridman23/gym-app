@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Client, Prisma } from '../generated/prisma/client.js';
+import { toE164Israel } from '../reminders/reminders.template.js';
 
 export interface CreateClientInput {
   name: string;
@@ -47,7 +52,10 @@ export class ClientsService {
 
   list(coachId: string): Promise<Client[]> {
     return this.prisma.withCoach(coachId, (tx) =>
-      tx.client.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } }),
+      tx.client.findMany({
+        where: { deletedAt: null },
+        orderBy: { name: 'asc' },
+      }),
     );
   }
 
@@ -56,7 +64,9 @@ export class ClientsService {
   async create(coachId: string, input: CreateClientInput): Promise<Client> {
     const name = text(input?.name);
     const phone = text(input?.phone, 30);
-    if (!name || !phone) throw new BadRequestException('שם וטלפון הם שדות חובה');
+    if (!name || !phone)
+      throw new BadRequestException('שם וטלפון הם שדות חובה');
+    const normalizedPhone = toE164Israel(phone);
 
     return this.prisma.withCoach(coachId, (tx) =>
       tx.client.create({
@@ -64,6 +74,7 @@ export class ClientsService {
           coachId,
           name,
           phone,
+          normalizedPhone,
           fields: sanitizeFields(input?.fields) as Prisma.InputJsonValue,
           priceAgorot: money(input?.priceAgorot),
         },
@@ -71,20 +82,33 @@ export class ClientsService {
     );
   }
 
-  update(coachId: string, clientId: string, input: UpdateClientInput): Promise<Client> {
+  update(
+    coachId: string,
+    clientId: string,
+    input: UpdateClientInput,
+  ): Promise<Client> {
     return this.prisma.withCoach(coachId, async (tx) => {
-      const existing = await tx.client.findFirst({ where: { id: clientId, deletedAt: null } });
+      const existing = await tx.client.findFirst({
+        where: { id: clientId, deletedAt: null },
+      });
       if (!existing) throw new NotFoundException();
+      const phone =
+        input.phone !== undefined ? text(input.phone, 30) : undefined;
 
       return tx.client.update({
         where: { id: clientId },
         data: {
           ...(input.name !== undefined && { name: text(input.name) }),
-          ...(input.phone !== undefined && { phone: text(input.phone, 30) }),
+          ...(phone !== undefined && {
+            phone,
+            normalizedPhone: toE164Israel(phone),
+          }),
           ...(input.fields !== undefined && {
             fields: sanitizeFields(input.fields) as Prisma.InputJsonValue,
           }),
-          ...(input.priceAgorot !== undefined && { priceAgorot: money(input.priceAgorot) }),
+          ...(input.priceAgorot !== undefined && {
+            priceAgorot: money(input.priceAgorot),
+          }),
         },
       });
     });
@@ -92,9 +116,14 @@ export class ClientsService {
 
   softDelete(coachId: string, clientId: string): Promise<void> {
     return this.prisma.withCoach(coachId, async (tx) => {
-      const existing = await tx.client.findFirst({ where: { id: clientId, deletedAt: null } });
+      const existing = await tx.client.findFirst({
+        where: { id: clientId, deletedAt: null },
+      });
       if (!existing) throw new NotFoundException();
-      await tx.client.update({ where: { id: clientId }, data: { deletedAt: new Date() } });
+      await tx.client.update({
+        where: { id: clientId },
+        data: { deletedAt: new Date() },
+      });
     });
   }
 }

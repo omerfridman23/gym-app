@@ -9,7 +9,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomInt } from 'node:crypto';
-import { DEV_COACH_NAME, DEV_COACH_PHONE, DEV_LOGIN_CODE } from './auth.constants.js';
+import {
+  DEV_COACH_NAME,
+  DEV_COACH_PHONE,
+  DEV_LOGIN_CODE,
+} from './auth.constants.js';
 import { AuthRepository } from './auth.repository.js';
 import { SMS_PROVIDER, type SmsProvider } from './sms/sms-provider.js';
 
@@ -44,8 +48,14 @@ export class AuthService {
     return phone === DEV_LOGIN_CODE || code === DEV_LOGIN_CODE;
   }
 
-  private async loginDevCoach(): Promise<{ token: string; coach: CoachSession }> {
-    const coach = await this.repo.findOrCreateDevCoach(DEV_COACH_PHONE, DEV_COACH_NAME);
+  private async loginDevCoach(): Promise<{
+    token: string;
+    coach: CoachSession;
+  }> {
+    const coach = await this.repo.findOrCreateDevCoach(
+      DEV_COACH_PHONE,
+      DEV_COACH_NAME,
+    );
     const token = await this.jwt.signAsync({ sub: coach.id });
     return { token, coach: this.toSession(coach) };
   }
@@ -70,26 +80,41 @@ export class AuthService {
     const since = new Date(Date.now() - OTP_REQUEST_WINDOW_MS);
     const recent = await this.repo.countRecentOtpRequests(phone, since);
     if (recent >= OTP_REQUESTS_PER_WINDOW) {
-      throw new HttpException('יותר מדי בקשות, נסו שוב מאוחר יותר', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'יותר מדי בקשות, נסו שוב מאוחר יותר',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    await this.repo.createOtp(phone, this.hashCode(phone, code), new Date(Date.now() + OTP_TTL_MS));
+    await this.repo.createOtp(
+      phone,
+      this.hashCode(phone, code),
+      new Date(Date.now() + OTP_TTL_MS),
+    );
     await this.sms.sendOtp(phone, code);
   }
 
-  async verifyOtp(rawPhone: string, code: string): Promise<{ token: string; coach: CoachSession }> {
+  async verifyOtp(
+    rawPhone: string,
+    code: string,
+  ): Promise<{ token: string; coach: CoachSession }> {
     if (this.isDevLogin(rawPhone, code)) return this.loginDevCoach();
 
     const phone = this.normalizePhone(rawPhone);
-    if (!/^\d{6}$/.test(code ?? '')) throw new UnauthorizedException('קוד שגוי');
+    if (!/^\d{6}$/.test(code ?? ''))
+      throw new UnauthorizedException('קוד שגוי');
 
     const otp = await this.repo.findActiveOtp(phone);
     if (!otp || otp.attempts >= OTP_MAX_ATTEMPTS) {
       throw new UnauthorizedException('הקוד פג תוקף, בקשו קוד חדש');
     }
 
-    if (otp.codeHash !== this.hashCode(phone, code)) {
+    const valid = this.sms.verifyOtp
+      ? await this.sms.verifyOtp(phone, code)
+      : otp.codeHash === this.hashCode(phone, code);
+
+    if (!valid) {
       const attempts = await this.repo.recordFailedAttempt(otp.id);
       if (attempts >= OTP_MAX_ATTEMPTS) {
         throw new UnauthorizedException('הקוד פג תוקף, בקשו קוד חדש');

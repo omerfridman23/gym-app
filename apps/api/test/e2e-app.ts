@@ -17,7 +17,10 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { AppModule } from '../src/app.module.js';
-import { SMS_PROVIDER, type SmsProvider } from '../src/auth/sms/sms-provider.js';
+import {
+  SMS_PROVIDER,
+  type SmsProvider,
+} from '../src/auth/sms/sms-provider.js';
 import { PrismaAdminService } from '../src/database/prisma-admin.service.js';
 
 /** Stands in for the SMS gateway and remembers the codes it was asked to send. */
@@ -48,7 +51,9 @@ export interface E2eContext {
 
 /** A unique, valid Israeli mobile, so parallel runs never collide on a coach. */
 export function randomIsraeliPhone(): string {
-  const digits = Array.from({ length: 8 }, () => Math.floor(Math.random() * 10)).join('');
+  const digits = Array.from({ length: 8 }, () =>
+    Math.floor(Math.random() * 10),
+  ).join('');
   return `05${digits}`;
 }
 
@@ -115,13 +120,20 @@ export interface LoggedInCoach {
  * Completes the real login flow: request an OTP, read the code out of the fake
  * gateway, verify it, and keep the session cookie.
  */
-export async function login(ctx: E2eContext, phone = randomIsraeliPhone()): Promise<LoggedInCoach> {
+export async function login(
+  ctx: E2eContext,
+  phone = randomIsraeliPhone(),
+): Promise<LoggedInCoach> {
   await ctx.http().post('/api/auth/otp/request').send({ phone }).expect(204);
 
   const code = ctx.sms.codes.get(toE164(phone));
   if (!code) throw new Error(`no OTP was sent to ${phone}`);
 
-  const verified = await ctx.http().post('/api/auth/otp/verify').send({ phone, code }).expect(201);
+  const verified = await ctx
+    .http()
+    .post('/api/auth/otp/verify')
+    .send({ phone, code })
+    .expect(201);
 
   const setCookie = verified.headers['set-cookie'] as unknown as string[];
   const cookie = setCookie.map((entry) => entry.split(';')[0]).join('; ');

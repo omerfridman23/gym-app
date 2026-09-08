@@ -1,4 +1,9 @@
-import { Global, Inject, Module, type OnApplicationShutdown } from '@nestjs/common';
+import {
+  Global,
+  Inject,
+  Module,
+  type OnApplicationShutdown,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Pool } from 'pg';
 import { PG_POOL } from './database.constants.js';
@@ -15,7 +20,9 @@ import { PrismaService } from './prisma.service.js';
       inject: [ConfigService],
       useFactory: (config: ConfigService): Pool => {
         const connectionString = config.getOrThrow<string>('DATABASE_URL');
-        const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+        const isLocal =
+          connectionString.includes('localhost') ||
+          connectionString.includes('127.0.0.1');
 
         return new Pool({
           connectionString,

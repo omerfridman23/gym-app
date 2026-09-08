@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../database/prisma.service.js';
 import { CoachesService } from './coaches.service.js';
@@ -14,6 +14,11 @@ function coachRow(overrides: Record<string, unknown> = {}) {
     defaultPriceAgorot: 0,
     reminderHoursBefore: 24,
     cancellationPolicy: '',
+    templates: {},
+    bookingSlug: null,
+    bookingEnabled: false,
+    bookingStartHour: 8,
+    bookingEndHour: 21,
     onboardedAt: null,
     deletedAt: null,
     ...overrides,
@@ -30,7 +35,11 @@ describe('CoachesService.updateMe', () => {
     findFirst = vi.fn().mockResolvedValue(coachRow());
     update = vi.fn().mockImplementation(async ({ data }) => coachRow(data));
     const tx = { coach: { findFirst, update } };
-    withCoach = vi.fn().mockImplementation((_coachId: string, fn: (t: typeof tx) => unknown) => fn(tx));
+    withCoach = vi
+      .fn()
+      .mockImplementation((_coachId: string, fn: (t: typeof tx) => unknown) =>
+        fn(tx),
+      );
     service = new CoachesService({ withCoach } as unknown as PrismaService);
   });
 
@@ -51,14 +60,20 @@ describe('CoachesService.updateMe', () => {
 
     it('throws 404 when the coach does not exist', async () => {
       findFirst.mockResolvedValue(null);
-      await expect(service.updateMe('missing', { name: 'x' })).rejects.toThrow(NotFoundException);
+      await expect(service.updateMe('missing', { name: 'x' })).rejects.toThrow(
+        NotFoundException,
+      );
       expect(update).not.toHaveBeenCalled();
     });
 
     it('throws 404 for a soft-deleted coach', async () => {
       findFirst.mockResolvedValue(null);
-      await expect(service.updateMe('coach-1', { name: 'x' })).rejects.toThrow(NotFoundException);
-      expect(findFirst.mock.calls[0][0].where).toMatchObject({ deletedAt: null });
+      await expect(service.updateMe('coach-1', { name: 'x' })).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(findFirst.mock.calls[0][0].where).toMatchObject({
+        deletedAt: null,
+      });
     });
   });
 
@@ -119,7 +134,9 @@ describe('CoachesService.updateMe', () => {
 
     it('does not re-stamp onboardedAt when the vertical is changed later', async () => {
       const originalDate = new Date('2026-01-01T00:00:00.000Z');
-      findFirst.mockResolvedValue(coachRow({ vertical: 'padel', onboardedAt: originalDate }));
+      findFirst.mockResolvedValue(
+        coachRow({ vertical: 'padel', onboardedAt: originalDate }),
+      );
 
       await service.updateMe('coach-1', { vertical: 'fitness' });
 
@@ -128,7 +145,10 @@ describe('CoachesService.updateMe', () => {
     });
 
     it('does not stamp onboardedAt for a profile-only edit', async () => {
-      await service.updateMe('coach-1', { name: 'דני', defaultPriceAgorot: 18000 });
+      await service.updateMe('coach-1', {
+        name: 'דני',
+        defaultPriceAgorot: 18000,
+      });
       expect(dataSentToUpdate()).not.toHaveProperty('onboardedAt');
     });
   });
@@ -145,33 +165,53 @@ describe('CoachesService.updateMe', () => {
     });
 
     it('does not persist NaN when the price is not a number', async () => {
-      await service.updateMe('coach-1', { defaultPriceAgorot: 'abc' as unknown as number });
-      expect(Number.isNaN(dataSentToUpdate().defaultPriceAgorot as number)).toBe(false);
+      await service.updateMe('coach-1', {
+        defaultPriceAgorot: 'abc' as unknown as number,
+      });
+      expect(
+        Number.isNaN(dataSentToUpdate().defaultPriceAgorot as number),
+      ).toBe(false);
     });
 
     it('does not persist NaN when the reminder window is not a number', async () => {
-      await service.updateMe('coach-1', { reminderHoursBefore: {} as unknown as number });
-      expect(Number.isNaN(dataSentToUpdate().reminderHoursBefore as number)).toBe(false);
+      await service.updateMe('coach-1', {
+        reminderHoursBefore: {} as unknown as number,
+      });
+      expect(
+        Number.isNaN(dataSentToUpdate().reminderHoursBefore as number),
+      ).toBe(false);
     });
 
     it('clamps a price above the postgres int4 ceiling instead of failing at the driver', async () => {
       await service.updateMe('coach-1', { defaultPriceAgorot: 99_999_999_00 });
-      expect(dataSentToUpdate().defaultPriceAgorot as number).toBeLessThanOrEqual(PG_INT4_MAX);
+      expect(
+        dataSentToUpdate().defaultPriceAgorot as number,
+      ).toBeLessThanOrEqual(PG_INT4_MAX);
     });
 
     it('clamps a reminder window above the postgres int4 ceiling', async () => {
-      await service.updateMe('coach-1', { reminderHoursBefore: Number.MAX_SAFE_INTEGER });
-      expect(dataSentToUpdate().reminderHoursBefore as number).toBeLessThanOrEqual(PG_INT4_MAX);
+      await service.updateMe('coach-1', {
+        reminderHoursBefore: Number.MAX_SAFE_INTEGER,
+      });
+      expect(
+        dataSentToUpdate().reminderHoursBefore as number,
+      ).toBeLessThanOrEqual(PG_INT4_MAX);
     });
 
     it('bounds the cancellation policy length', async () => {
-      await service.updateMe('coach-1', { cancellationPolicy: 'א'.repeat(100_000) });
-      expect((dataSentToUpdate().cancellationPolicy as string).length).toBeLessThanOrEqual(2000);
+      await service.updateMe('coach-1', {
+        cancellationPolicy: 'א'.repeat(100_000),
+      });
+      expect(
+        (dataSentToUpdate().cancellationPolicy as string).length,
+      ).toBeLessThanOrEqual(2000);
     });
 
     it('bounds the name length', async () => {
       await service.updateMe('coach-1', { name: 'א'.repeat(10_000) });
-      expect((dataSentToUpdate().name as string).length).toBeLessThanOrEqual(200);
+      expect((dataSentToUpdate().name as string).length).toBeLessThanOrEqual(
+        200,
+      );
     });
 
     it('ignores unknown keys rather than forwarding them to prisma', async () => {
@@ -183,6 +223,20 @@ describe('CoachesService.updateMe', () => {
       } as never);
 
       expect(Object.keys(dataSentToUpdate())).toEqual(['name']);
+    });
+
+    it.each([
+      { bookingEnabled: 'false' },
+      { bookingEnabled: 1 },
+      { bookingStartHour: '9' },
+      { bookingStartHour: 8.5 },
+      { bookingEndHour: 25 },
+      { bookingSlug: ['valid-looking'] },
+    ])('rejects malformed booking settings: %o', async (input) => {
+      await expect(
+        service.updateMe('coach-1', input as never),
+      ).rejects.toThrow(BadRequestException);
+      expect(update).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, HttpCode, Post, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { CookieOptions, Response } from 'express';
 import { PrismaService } from '../database/prisma.service.js';
@@ -41,14 +49,19 @@ export class AuthController {
     @Body() body: { phone: string; code: string },
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ coach: CoachSession }> {
-    const { token, coach } = await this.authService.verifyOtp(body?.phone ?? '', body?.code ?? '');
+    const { token, coach } = await this.authService.verifyOtp(
+      body?.phone ?? '',
+      body?.code ?? '',
+    );
     res.cookie(AUTH_COOKIE, token, this.cookieOptions());
     return { coach };
   }
 
   @Get('me')
   @UseGuards(AuthGuard)
-  async me(@CurrentCoach() coachId: string): Promise<{ coach: CoachSession | null }> {
+  async me(
+    @CurrentCoach() coachId: string,
+  ): Promise<{ coach: CoachSession | null }> {
     const coach = await this.prisma.withCoach(coachId, (tx) =>
       tx.coach.findFirst({ where: { id: coachId, deletedAt: null } }),
     );
@@ -58,6 +71,9 @@ export class AuthController {
   @Post('logout')
   @HttpCode(204)
   logout(@Res({ passthrough: true }) res: Response): void {
-    res.clearCookie(AUTH_COOKIE, { ...this.cookieOptions(), maxAge: undefined });
+    res.clearCookie(AUTH_COOKIE, {
+      ...this.cookieOptions(),
+      maxAge: undefined,
+    });
   }
 }

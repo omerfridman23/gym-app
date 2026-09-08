@@ -46,7 +46,9 @@ function makeHarness(
   const packages = rows.packages ?? [packageRow()];
   let scopedCoachId = '';
 
-  const visible = <T extends { coachId: string; id: string; deletedAt: Date | null }>(
+  const visible = <
+    T extends { coachId: string; id: string; deletedAt: Date | null },
+  >(
     all: T[],
     where: Where | undefined,
   ) =>
@@ -60,11 +62,15 @@ function makeHarness(
   const clientFindFirst = vi.fn(
     async ({ where }: { where?: Where }) => visible(clients, where)[0] ?? null,
   );
-  const packageFindMany = vi.fn(async ({ where }: { where?: Where }) => visible(packages, where));
-  const packageCreate = vi.fn(async ({ data }: { data: Record<string, unknown> }) =>
-    packageRow(data),
+  const packageFindMany = vi.fn(async ({ where }: { where?: Where }) =>
+    visible(packages, where),
   );
-  const sessionGroupBy = vi.fn(async (_args: Record<string, unknown>) => rows.used ?? []);
+  const packageCreate = vi.fn(
+    async ({ data }: { data: Record<string, unknown> }) => packageRow(data),
+  );
+  const sessionGroupBy = vi.fn(
+    async (_args: Record<string, unknown>) => rows.used ?? [],
+  );
 
   const tx = {
     client: { findFirst: clientFindFirst },
@@ -97,13 +103,18 @@ describe('PackagesService.list', () => {
     const h = makeHarness({
       packages: [
         packageRow({ id: 'live' }),
-        packageRow({ id: 'gone', deletedAt: new Date('2026-09-02T00:00:00.000Z') }),
+        packageRow({
+          id: 'gone',
+          deletedAt: new Date('2026-09-02T00:00:00.000Z'),
+        }),
       ],
     });
 
     const result = await h.service.list(OWNER);
 
-    expect(h.packageFindMany.mock.calls[0][0].where).toEqual({ deletedAt: null });
+    expect(h.packageFindMany.mock.calls[0][0].where).toEqual({
+      deletedAt: null,
+    });
     expect(result.map((p) => p.id)).toEqual(['live']);
   });
 
@@ -117,17 +128,27 @@ describe('PackagesService.list', () => {
 
   it('never returns another coach packages', async () => {
     const h = makeHarness({
-      packages: [packageRow({ id: 'mine' }), packageRow({ id: 'theirs', coachId: OTHER })],
+      packages: [
+        packageRow({ id: 'mine' }),
+        packageRow({ id: 'theirs', coachId: OTHER }),
+      ],
     });
 
-    await expect(h.service.list(OWNER)).resolves.toMatchObject([{ id: 'mine' }]);
+    await expect(h.service.list(OWNER)).resolves.toMatchObject([
+      { id: 'mine' },
+    ]);
   });
 
   describe('remaining sessions', () => {
     it('is the full total for an untouched package', async () => {
-      const h = makeHarness({ packages: [packageRow({ totalSessions: 10 })], used: [] });
+      const h = makeHarness({
+        packages: [packageRow({ totalSessions: 10 })],
+        used: [],
+      });
 
-      await expect(h.service.list(OWNER)).resolves.toMatchObject([{ remaining: 10 }]);
+      await expect(h.service.list(OWNER)).resolves.toMatchObject([
+        { remaining: 10 },
+      ]);
     });
 
     it('subtracts the sessions already drawn from the package', async () => {
@@ -136,7 +157,9 @@ describe('PackagesService.list', () => {
         used: [{ packageId: 'package-1', _count: { _all: 4 } }],
       });
 
-      await expect(h.service.list(OWNER)).resolves.toMatchObject([{ remaining: 6 }]);
+      await expect(h.service.list(OWNER)).resolves.toMatchObject([
+        { remaining: 6 },
+      ]);
     });
 
     it('reaches exactly zero on a fully used package', async () => {
@@ -145,7 +168,9 @@ describe('PackagesService.list', () => {
         used: [{ packageId: 'package-1', _count: { _all: 10 } }],
       });
 
-      await expect(h.service.list(OWNER)).resolves.toMatchObject([{ remaining: 0 }]);
+      await expect(h.service.list(OWNER)).resolves.toMatchObject([
+        { remaining: 0 },
+      ]);
     });
 
     it('never goes negative when more sessions were booked than bought', async () => {
@@ -154,7 +179,9 @@ describe('PackagesService.list', () => {
         used: [{ packageId: 'package-1', _count: { _all: 14 } }],
       });
 
-      await expect(h.service.list(OWNER)).resolves.toMatchObject([{ remaining: 0 }]);
+      await expect(h.service.list(OWNER)).resolves.toMatchObject([
+        { remaining: 0 },
+      ]);
     });
 
     it('attributes usage per package rather than in aggregate', async () => {
@@ -186,7 +213,9 @@ describe('PackagesService.list', () => {
         ],
       });
 
-      await expect(h.service.list(OWNER)).resolves.toMatchObject([{ remaining: 8 }]);
+      await expect(h.service.list(OWNER)).resolves.toMatchObject([
+        { remaining: 8 },
+      ]);
     });
 
     it('keeps the package fields alongside remaining', async () => {
@@ -211,7 +240,11 @@ describe('PackagesService.list', () => {
 
       expect(h.sessionGroupBy.mock.calls[0][0]).toEqual({
         by: ['packageId'],
-        where: { packageId: { not: null }, deletedAt: null, status: { not: 'cancelled' } },
+        where: {
+          packageId: { not: null },
+          deletedAt: null,
+          status: { not: 'cancelled' },
+        },
         _count: { _all: true },
       });
     });
@@ -219,9 +252,15 @@ describe('PackagesService.list', () => {
 });
 
 describe('PackagesService.create', () => {
-  const valid = { clientId: 'client-1', totalSessions: 10, purchasedAgorot: 150_000 };
+  const valid = {
+    clientId: 'client-1',
+    totalSessions: 10,
+    purchasedAgorot: 150_000,
+  };
 
-  function dataSentToCreate(h: ReturnType<typeof makeHarness>): Record<string, unknown> {
+  function dataSentToCreate(
+    h: ReturnType<typeof makeHarness>,
+  ): Record<string, unknown> {
     return h.packageCreate.mock.calls[0][0].data;
   }
 
@@ -239,13 +278,19 @@ describe('PackagesService.create', () => {
       [undefined, 'missing'],
       [Number.POSITIVE_INFINITY, 'Infinity'],
       [Number.MAX_SAFE_INTEGER, 'absurd'],
-    ])('rejects a totalSessions of %j (%s) before opening a transaction', async (totalSessions) => {
-      const h = makeHarness();
-      await expect(
-        h.service.create(OWNER, { ...valid, totalSessions: totalSessions as never }),
-      ).rejects.toThrow(BadRequestException);
-      expect(h.withCoach).not.toHaveBeenCalled();
-    });
+    ])(
+      'rejects a totalSessions of %j (%s) before opening a transaction',
+      async (totalSessions) => {
+        const h = makeHarness();
+        await expect(
+          h.service.create(OWNER, {
+            ...valid,
+            totalSessions: totalSessions as never,
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(h.withCoach).not.toHaveBeenCalled();
+      },
+    );
 
     it('accepts a single-session package', async () => {
       const h = makeHarness();
@@ -278,13 +323,19 @@ describe('PackagesService.create', () => {
       [99_999_999_00, 'above the int4 ceiling'],
       [Number.POSITIVE_INFINITY, 'Infinity'],
       [Number.MAX_SAFE_INTEGER, 'absurd'],
-    ])('rejects a purchasedAgorot of %j (%s) before opening a transaction', async (purchased) => {
-      const h = makeHarness();
-      await expect(
-        h.service.create(OWNER, { ...valid, purchasedAgorot: purchased as never }),
-      ).rejects.toThrow(BadRequestException);
-      expect(h.withCoach).not.toHaveBeenCalled();
-    });
+    ])(
+      'rejects a purchasedAgorot of %j (%s) before opening a transaction',
+      async (purchased) => {
+        const h = makeHarness();
+        await expect(
+          h.service.create(OWNER, {
+            ...valid,
+            purchasedAgorot: purchased as never,
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(h.withCoach).not.toHaveBeenCalled();
+      },
+    );
 
     it('allows a zero-price package, e.g. a comped bundle', async () => {
       const h = makeHarness();
@@ -297,7 +348,10 @@ describe('PackagesService.create', () => {
     // is a 400.
     it('treats an explicit null price as zero', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { ...valid, purchasedAgorot: null as never });
+      await h.service.create(OWNER, {
+        ...valid,
+        purchasedAgorot: null as never,
+      });
       expect(dataSentToCreate(h).purchasedAgorot).toBe(0);
     });
 
@@ -315,17 +369,22 @@ describe('PackagesService.create', () => {
   });
 
   describe('client validation and scoping', () => {
-    it.each(['', undefined, null])('rejects a %j clientId', async (clientId) => {
-      const h = makeHarness();
-      await expect(
-        h.service.create(OWNER, { ...valid, clientId: clientId as never }),
-      ).rejects.toThrow(BadRequestException);
-      expect(h.withCoach).not.toHaveBeenCalled();
-    });
+    it.each(['', undefined, null])(
+      'rejects a %j clientId',
+      async (clientId) => {
+        const h = makeHarness();
+        await expect(
+          h.service.create(OWNER, { ...valid, clientId: clientId as never }),
+        ).rejects.toThrow(BadRequestException);
+        expect(h.withCoach).not.toHaveBeenCalled();
+      },
+    );
 
     it('rejects a null body without a TypeError', async () => {
       const h = makeHarness();
-      await expect(h.service.create(OWNER, null as never)).rejects.toThrow(BadRequestException);
+      await expect(h.service.create(OWNER, null as never)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('runs inside an RLS-scoped transaction for the calling coach', async () => {
@@ -336,25 +395,31 @@ describe('PackagesService.create', () => {
 
     it('throws 404 for an unknown client', async () => {
       const h = makeHarness();
-      await expect(h.service.create(OWNER, { ...valid, clientId: 'nope' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        h.service.create(OWNER, { ...valid, clientId: 'nope' }),
+      ).rejects.toThrow(NotFoundException);
       expect(h.packageCreate).not.toHaveBeenCalled();
     });
 
     it('throws 404 for a soft-deleted client', async () => {
       const h = makeHarness({
-        clients: [clientRow({ deletedAt: new Date('2026-02-01T00:00:00.000Z') })],
+        clients: [
+          clientRow({ deletedAt: new Date('2026-02-01T00:00:00.000Z') }),
+        ],
       });
 
-      await expect(h.service.create(OWNER, valid)).rejects.toThrow(NotFoundException);
+      await expect(h.service.create(OWNER, valid)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(h.packageCreate).not.toHaveBeenCalled();
     });
 
     it('throws 404 — sells nothing — when the client belongs to another coach', async () => {
       const h = makeHarness({ clients: [clientRow({ coachId: OTHER })] });
 
-      await expect(h.service.create(OWNER, valid)).rejects.toThrow(NotFoundException);
+      await expect(h.service.create(OWNER, valid)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(h.packageCreate).not.toHaveBeenCalled();
     });
 
@@ -362,12 +427,19 @@ describe('PackagesService.create', () => {
       const h = makeHarness();
       await h.service.create(OWNER, { ...valid, coachId: OTHER } as never);
 
-      expect(dataSentToCreate(h)).toMatchObject({ coachId: OWNER, clientId: 'client-1' });
+      expect(dataSentToCreate(h)).toMatchObject({
+        coachId: OWNER,
+        clientId: 'client-1',
+      });
     });
 
     it('writes only the package columns it owns', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { ...valid, id: 'chosen', deletedAt: null } as never);
+      await h.service.create(OWNER, {
+        ...valid,
+        id: 'chosen',
+        deletedAt: null,
+      } as never);
 
       expect(Object.keys(dataSentToCreate(h)).sort()).toEqual([
         'clientId',
@@ -381,7 +453,9 @@ describe('PackagesService.create', () => {
   it('reports a brand new package as fully remaining', async () => {
     const h = makeHarness();
 
-    await expect(h.service.create(OWNER, { ...valid, totalSessions: 8 })).resolves.toMatchObject({
+    await expect(
+      h.service.create(OWNER, { ...valid, totalSessions: 8 }),
+    ).resolves.toMatchObject({
       totalSessions: 8,
       remaining: 8,
     });

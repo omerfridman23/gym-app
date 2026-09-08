@@ -8,7 +8,12 @@
  * so these tests deliberately go through HTTP rather than mocking Prisma.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createE2eApp, login, type E2eContext, type LoggedInCoach } from './e2e-app.js';
+import {
+  createE2eApp,
+  login,
+  type E2eContext,
+  type LoggedInCoach,
+} from './e2e-app.js';
 
 describe('coach isolation (e2e)', () => {
   let ctx: E2eContext;
@@ -49,13 +54,21 @@ describe('coach isolation (e2e)', () => {
   });
 
   it("keeps another coach's clients out of the list", async () => {
-    const mine = await ctx.http().get('/api/clients').set('Cookie', bob.cookie).expect(200);
+    const mine = await ctx
+      .http()
+      .get('/api/clients')
+      .set('Cookie', bob.cookie)
+      .expect(200);
 
     expect(mine.body.clients).toEqual([]);
   });
 
   it("keeps another coach's sessions out of the list", async () => {
-    const mine = await ctx.http().get('/api/sessions').set('Cookie', bob.cookie).expect(200);
+    const mine = await ctx
+      .http()
+      .get('/api/sessions')
+      .set('Cookie', bob.cookie)
+      .expect(200);
 
     expect(mine.body.sessions).toEqual([]);
   });
@@ -68,10 +81,18 @@ describe('coach isolation (e2e)', () => {
       .send({ name: 'נחטף' })
       .expect(404);
 
-    await ctx.http().delete(`/api/clients/${aliceClientId}`).set('Cookie', bob.cookie).expect(404);
+    await ctx
+      .http()
+      .delete(`/api/clients/${aliceClientId}`)
+      .set('Cookie', bob.cookie)
+      .expect(404);
 
     // ...and the record is untouched for its real owner.
-    const owner = await ctx.http().get('/api/clients').set('Cookie', alice.cookie).expect(200);
+    const owner = await ctx
+      .http()
+      .get('/api/clients')
+      .set('Cookie', alice.cookie)
+      .expect(200);
     expect(owner.body.clients).toHaveLength(1);
     expect(owner.body.clients[0].name).toBe('רון אביב');
   });
@@ -84,7 +105,11 @@ describe('coach isolation (e2e)', () => {
       .send({ status: 'cancelled' })
       .expect(404);
 
-    const owner = await ctx.http().get('/api/sessions').set('Cookie', alice.cookie).expect(200);
+    const owner = await ctx
+      .http()
+      .get('/api/sessions')
+      .set('Cookie', alice.cookie)
+      .expect(200);
     expect(owner.body.sessions[0].status).toBe('pending');
   });
 
@@ -115,18 +140,30 @@ describe('coach isolation (e2e)', () => {
       .http()
       .post('/api/packages')
       .set('Cookie', bob.cookie)
-      .send({ clientId: aliceClientId, totalSessions: 10, purchasedAgorot: 100000 })
+      .send({
+        clientId: aliceClientId,
+        totalSessions: 10,
+        purchasedAgorot: 100000,
+      })
       .expect(404);
   });
 
   it("keeps another coach's reminders out of the due queue", async () => {
-    const due = await ctx.http().get('/api/reminders/due').set('Cookie', bob.cookie).expect(200);
+    const due = await ctx
+      .http()
+      .get('/api/reminders/due')
+      .set('Cookie', bob.cookie)
+      .expect(200);
 
     expect(due.body.reminders).toEqual([]);
   });
 
   it('scopes the coach profile to the caller', async () => {
-    const mine = await ctx.http().get('/api/coaches/me').set('Cookie', bob.cookie).expect(200);
+    const mine = await ctx
+      .http()
+      .get('/api/coaches/me')
+      .set('Cookie', bob.cookie)
+      .expect(200);
 
     expect(mine.body.coach.id).toBe(bob.coachId);
     expect(mine.body.coach.id).not.toBe(alice.coachId);

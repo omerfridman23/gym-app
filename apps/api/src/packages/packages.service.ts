@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Package } from '../generated/prisma/client.js';
 
@@ -25,7 +29,11 @@ export class PackagesService {
       });
       const used = await tx.session.groupBy({
         by: ['packageId'],
-        where: { packageId: { not: null }, deletedAt: null, status: { not: 'cancelled' } },
+        where: {
+          packageId: { not: null },
+          deletedAt: null,
+          status: { not: 'cancelled' },
+        },
         _count: { _all: true },
       });
       const usedById = new Map(used.map((u) => [u.packageId, u._count._all]));
@@ -38,7 +46,10 @@ export class PackagesService {
 
   // `async` so invalid input rejects instead of throwing synchronously out of
   // a Promise-returning method.
-  async create(coachId: string, input: CreatePackageInput): Promise<PackageWithRemaining> {
+  async create(
+    coachId: string,
+    input: CreatePackageInput,
+  ): Promise<PackageWithRemaining> {
     const total = Math.trunc(Number(input?.totalSessions));
     const purchased = Math.trunc(Number(input?.purchasedAgorot));
     if (!input?.clientId || Number.isNaN(total) || total <= 0 || total > 1000) {
@@ -49,7 +60,9 @@ export class PackagesService {
     }
 
     return this.prisma.withCoach(coachId, async (tx) => {
-      const client = await tx.client.findFirst({ where: { id: input.clientId, deletedAt: null } });
+      const client = await tx.client.findFirst({
+        where: { id: input.clientId, deletedAt: null },
+      });
       if (!client) throw new NotFoundException('מתאמן לא נמצא');
 
       const created = await tx.package.create({

@@ -44,7 +44,9 @@ function makeHarness(
   const payments = rows.payments ?? [paymentRow()];
   let scopedCoachId = '';
 
-  const visible = <T extends { coachId: string; id: string; deletedAt: Date | null }>(
+  const visible = <
+    T extends { coachId: string; id: string; deletedAt: Date | null },
+  >(
     all: T[],
     where: Where | undefined,
   ) =>
@@ -58,9 +60,11 @@ function makeHarness(
   const clientFindFirst = vi.fn(
     async ({ where }: { where?: Where }) => visible(clients, where)[0] ?? null,
   );
-  const paymentFindMany = vi.fn(async ({ where }: { where?: Where }) => visible(payments, where));
-  const paymentCreate = vi.fn(async ({ data }: { data: Record<string, unknown> }) =>
-    paymentRow(data),
+  const paymentFindMany = vi.fn(async ({ where }: { where?: Where }) =>
+    visible(payments, where),
+  );
+  const paymentCreate = vi.fn(
+    async ({ data }: { data: Record<string, unknown> }) => paymentRow(data),
   );
   const sessionUpdateMany = vi.fn(
     async (args: {
@@ -100,35 +104,53 @@ describe('PaymentsService.list', () => {
     const h = makeHarness({
       payments: [
         paymentRow({ id: 'live' }),
-        paymentRow({ id: 'gone', deletedAt: new Date('2026-09-02T00:00:00.000Z') }),
+        paymentRow({
+          id: 'gone',
+          deletedAt: new Date('2026-09-02T00:00:00.000Z'),
+        }),
       ],
     });
 
     const result = await h.service.list(OWNER);
 
-    expect(h.paymentFindMany.mock.calls[0][0].where).toEqual({ deletedAt: null });
+    expect(h.paymentFindMany.mock.calls[0][0].where).toEqual({
+      deletedAt: null,
+    });
     expect(result.map((p) => p.id)).toEqual(['live']);
   });
 
   it('shows the newest payment first', async () => {
     const h = makeHarness();
     await h.service.list(OWNER);
-    expect(h.paymentFindMany.mock.calls[0][0]).toMatchObject({ orderBy: { paidAt: 'desc' } });
+    expect(h.paymentFindMany.mock.calls[0][0]).toMatchObject({
+      orderBy: { paidAt: 'desc' },
+    });
   });
 
   it('never returns another coach payments', async () => {
     const h = makeHarness({
-      payments: [paymentRow({ id: 'mine' }), paymentRow({ id: 'theirs', coachId: OTHER })],
+      payments: [
+        paymentRow({ id: 'mine' }),
+        paymentRow({ id: 'theirs', coachId: OTHER }),
+      ],
     });
 
-    await expect(h.service.list(OWNER)).resolves.toMatchObject([{ id: 'mine' }]);
+    await expect(h.service.list(OWNER)).resolves.toMatchObject([
+      { id: 'mine' },
+    ]);
   });
 });
 
 describe('PaymentsService.create', () => {
-  const valid = { clientId: 'client-1', amountAgorot: 18_000, method: 'cash' as const };
+  const valid = {
+    clientId: 'client-1',
+    amountAgorot: 18_000,
+    method: 'cash' as const,
+  };
 
-  function dataSentToCreate(h: ReturnType<typeof makeHarness>): Record<string, unknown> {
+  function dataSentToCreate(
+    h: ReturnType<typeof makeHarness>,
+  ): Record<string, unknown> {
     return h.paymentCreate.mock.calls[0][0].data;
   }
 
@@ -147,13 +169,19 @@ describe('PaymentsService.create', () => {
       [99_999_999_00, 'above the int4 ceiling'],
       [Number.POSITIVE_INFINITY, 'Infinity'],
       [Number.MAX_SAFE_INTEGER, 'absurd'],
-    ])('rejects an amount of %j (%s) before opening a transaction', async (amountAgorot) => {
-      const h = makeHarness();
-      await expect(
-        h.service.create(OWNER, { ...valid, amountAgorot: amountAgorot as never }),
-      ).rejects.toThrow(BadRequestException);
-      expect(h.withCoach).not.toHaveBeenCalled();
-    });
+    ])(
+      'rejects an amount of %j (%s) before opening a transaction',
+      async (amountAgorot) => {
+        const h = makeHarness();
+        await expect(
+          h.service.create(OWNER, {
+            ...valid,
+            amountAgorot: amountAgorot as never,
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(h.withCoach).not.toHaveBeenCalled();
+      },
+    );
 
     it('accepts the smallest possible payment of one agora', async () => {
       const h = makeHarness();
@@ -175,28 +203,39 @@ describe('PaymentsService.create', () => {
 
     it('accepts a numeric string, since nothing validates the body', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { ...valid, amountAgorot: '18000' as never });
+      await h.service.create(OWNER, {
+        ...valid,
+        amountAgorot: '18000' as never,
+      });
       expect(dataSentToCreate(h).amountAgorot).toBe(18_000);
     });
   });
 
   describe('method validation', () => {
-    it.each(['cash', 'bit', 'transfer', 'card'] as const)('accepts %s', async (method) => {
-      const h = makeHarness();
-      await h.service.create(OWNER, { ...valid, method });
-      expect(dataSentToCreate(h).method).toBe(method);
-    });
-
-    it.each(['', 'CASH', 'Cash', 'paypal', 'toString', '__proto__', 'constructor'])(
-      'rejects the method %j before opening a transaction',
+    it.each(['cash', 'bit', 'transfer', 'card'] as const)(
+      'accepts %s',
       async (method) => {
         const h = makeHarness();
-        await expect(
-          h.service.create(OWNER, { ...valid, method: method as never }),
-        ).rejects.toThrow(BadRequestException);
-        expect(h.withCoach).not.toHaveBeenCalled();
+        await h.service.create(OWNER, { ...valid, method });
+        expect(dataSentToCreate(h).method).toBe(method);
       },
     );
+
+    it.each([
+      '',
+      'CASH',
+      'Cash',
+      'paypal',
+      'toString',
+      '__proto__',
+      'constructor',
+    ])('rejects the method %j before opening a transaction', async (method) => {
+      const h = makeHarness();
+      await expect(
+        h.service.create(OWNER, { ...valid, method: method as never }),
+      ).rejects.toThrow(BadRequestException);
+      expect(h.withCoach).not.toHaveBeenCalled();
+    });
 
     it.each([undefined, null, 1, {}, ['cash']])(
       'rejects the non-string method %j',
@@ -210,17 +249,22 @@ describe('PaymentsService.create', () => {
   });
 
   describe('client validation and scoping', () => {
-    it.each(['', undefined, null])('rejects a %j clientId', async (clientId) => {
-      const h = makeHarness();
-      await expect(
-        h.service.create(OWNER, { ...valid, clientId: clientId as never }),
-      ).rejects.toThrow(BadRequestException);
-      expect(h.withCoach).not.toHaveBeenCalled();
-    });
+    it.each(['', undefined, null])(
+      'rejects a %j clientId',
+      async (clientId) => {
+        const h = makeHarness();
+        await expect(
+          h.service.create(OWNER, { ...valid, clientId: clientId as never }),
+        ).rejects.toThrow(BadRequestException);
+        expect(h.withCoach).not.toHaveBeenCalled();
+      },
+    );
 
     it('rejects a null body without a TypeError', async () => {
       const h = makeHarness();
-      await expect(h.service.create(OWNER, null as never)).rejects.toThrow(BadRequestException);
+      await expect(h.service.create(OWNER, null as never)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('runs inside an RLS-scoped transaction for the calling coach', async () => {
@@ -231,25 +275,31 @@ describe('PaymentsService.create', () => {
 
     it('throws 404 for an unknown client', async () => {
       const h = makeHarness();
-      await expect(h.service.create(OWNER, { ...valid, clientId: 'nope' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        h.service.create(OWNER, { ...valid, clientId: 'nope' }),
+      ).rejects.toThrow(NotFoundException);
       expect(h.paymentCreate).not.toHaveBeenCalled();
     });
 
     it('throws 404 for a soft-deleted client', async () => {
       const h = makeHarness({
-        clients: [clientRow({ deletedAt: new Date('2026-02-01T00:00:00.000Z') })],
+        clients: [
+          clientRow({ deletedAt: new Date('2026-02-01T00:00:00.000Z') }),
+        ],
       });
 
-      await expect(h.service.create(OWNER, valid)).rejects.toThrow(NotFoundException);
+      await expect(h.service.create(OWNER, valid)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(h.paymentCreate).not.toHaveBeenCalled();
     });
 
     it('throws 404 — records nothing — when the client belongs to another coach', async () => {
       const h = makeHarness({ clients: [clientRow({ coachId: OTHER })] });
 
-      await expect(h.service.create(OWNER, valid)).rejects.toThrow(NotFoundException);
+      await expect(h.service.create(OWNER, valid)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(h.paymentCreate).not.toHaveBeenCalled();
       expect(h.sessionUpdateMany).not.toHaveBeenCalled();
     });
@@ -258,12 +308,19 @@ describe('PaymentsService.create', () => {
       const h = makeHarness();
       await h.service.create(OWNER, { ...valid, coachId: OTHER } as never);
 
-      expect(dataSentToCreate(h)).toMatchObject({ coachId: OWNER, clientId: 'client-1' });
+      expect(dataSentToCreate(h)).toMatchObject({
+        coachId: OWNER,
+        clientId: 'client-1',
+      });
     });
 
     it('writes only the payment columns it owns', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { ...valid, paidAt: new Date(0), id: 'chosen' } as never);
+      await h.service.create(OWNER, {
+        ...valid,
+        paidAt: new Date(0),
+        id: 'chosen',
+      } as never);
 
       expect(Object.keys(dataSentToCreate(h)).sort()).toEqual([
         'amountAgorot',
@@ -281,7 +338,11 @@ describe('PaymentsService.create', () => {
 
       expect(h.sessionUpdateMany).toHaveBeenCalledTimes(1);
       expect(h.sessionUpdateMany.mock.calls[0][0]).toEqual({
-        where: { id: { in: ['s1', 's2'] }, clientId: 'client-1', deletedAt: null },
+        where: {
+          id: { in: ['s1', 's2'] },
+          clientId: 'client-1',
+          deletedAt: null,
+        },
         data: { paid: true },
       });
     });
@@ -305,9 +366,14 @@ describe('PaymentsService.create', () => {
 
     it('scopes the settle to the paying client, so another client sessions cannot be cleared', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { ...valid, sessionIds: ['someone-elses-session'] });
+      await h.service.create(OWNER, {
+        ...valid,
+        sessionIds: ['someone-elses-session'],
+      });
 
-      expect(h.sessionUpdateMany.mock.calls[0][0].where).toMatchObject({ clientId: 'client-1' });
+      expect(h.sessionUpdateMany.mock.calls[0][0].where).toMatchObject({
+        clientId: 'client-1',
+      });
     });
 
     it('does not touch sessions when none are listed', async () => {
@@ -316,14 +382,17 @@ describe('PaymentsService.create', () => {
       expect(h.sessionUpdateMany).not.toHaveBeenCalled();
     });
 
-    it.each([[[]], [undefined], ['s1' as never], [{} as never], [null as never]])(
-      'does not touch sessions for a sessionIds of %j',
-      async (sessionIds) => {
-        const h = makeHarness();
-        await h.service.create(OWNER, { ...valid, sessionIds });
-        expect(h.sessionUpdateMany).not.toHaveBeenCalled();
-      },
-    );
+    it.each([
+      [[]],
+      [undefined],
+      ['s1' as never],
+      [{} as never],
+      [null as never],
+    ])('does not touch sessions for a sessionIds of %j', async (sessionIds) => {
+      const h = makeHarness();
+      await h.service.create(OWNER, { ...valid, sessionIds });
+      expect(h.sessionUpdateMany).not.toHaveBeenCalled();
+    });
 
     it('drops non-string entries instead of handing them to prisma', async () => {
       const h = makeHarness();
@@ -332,7 +401,9 @@ describe('PaymentsService.create', () => {
         sessionIds: ['s1', 42, null, undefined, {}, ['s2'], 's3'] as never,
       });
 
-      expect(h.sessionUpdateMany.mock.calls[0][0].where.id).toEqual({ in: ['s1', 's3'] });
+      expect(h.sessionUpdateMany.mock.calls[0][0].where.id).toEqual({
+        in: ['s1', 's3'],
+      });
     });
 
     it('caps the batch at 200 ids', async () => {
@@ -341,14 +412,18 @@ describe('PaymentsService.create', () => {
 
       await h.service.create(OWNER, { ...valid, sessionIds });
 
-      expect(h.sessionUpdateMany.mock.calls[0][0].where.id.in).toHaveLength(200);
+      expect(h.sessionUpdateMany.mock.calls[0][0].where.id.in).toHaveLength(
+        200,
+      );
     });
 
     it('excludes soft-deleted sessions from the settle', async () => {
       const h = makeHarness();
       await h.service.create(OWNER, { ...valid, sessionIds: ['s1'] });
 
-      expect(h.sessionUpdateMany.mock.calls[0][0].where).toMatchObject({ deletedAt: null });
+      expect(h.sessionUpdateMany.mock.calls[0][0].where).toMatchObject({
+        deletedAt: null,
+      });
     });
   });
 });

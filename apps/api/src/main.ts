@@ -5,6 +5,7 @@ import { resolveCorsOrigin } from './cors.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
 
   app.setGlobalPrefix('api');
   app.use(cookieParser());

@@ -27,7 +27,10 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
    * it is row-level-security scoped to that coach. All repository access for
    * authenticated requests must go through this.
    */
-  withCoach<T>(coachId: string, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  withCoach<T>(
+    coachId: string,
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
     return this.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.coach_id', ${coachId}, true)`;
       return fn(tx);

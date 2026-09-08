@@ -32,7 +32,9 @@ describe('AuthRepository', () => {
 
   it('counts requests for the exact normalized phone and inclusive window', async () => {
     const since = new Date('2026-09-06T10:00:00.000Z');
-    await expect(repo.countRecentOtpRequests('+972501234567', since)).resolves.toBe(2);
+    await expect(
+      repo.countRecentOtpRequests('+972501234567', since),
+    ).resolves.toBe(2);
     expect(otpCount).toHaveBeenCalledWith({
       where: { phone: '+972501234567', createdAt: { gte: since } },
     });

@@ -11,10 +11,16 @@ export class AuthRepository {
   constructor(private readonly db: PrismaAdminService) {}
 
   countRecentOtpRequests(phone: string, since: Date): Promise<number> {
-    return this.db.otpCode.count({ where: { phone, createdAt: { gte: since } } });
+    return this.db.otpCode.count({
+      where: { phone, createdAt: { gte: since } },
+    });
   }
 
-  async createOtp(phone: string, codeHash: string, expiresAt: Date): Promise<OtpCode> {
+  async createOtp(
+    phone: string,
+    codeHash: string,
+    expiresAt: Date,
+  ): Promise<OtpCode> {
     // A new code supersedes any previous outstanding one for this phone.
     await this.db.otpCode.updateMany({
       where: { phone, consumedAt: null },
@@ -39,7 +45,10 @@ export class AuthRepository {
   }
 
   async consumeOtp(id: string): Promise<void> {
-    await this.db.otpCode.update({ where: { id }, data: { consumedAt: new Date() } });
+    await this.db.otpCode.update({
+      where: { id },
+      data: { consumedAt: new Date() },
+    });
   }
 
   findOrCreateCoach(phone: string): Promise<Coach> {

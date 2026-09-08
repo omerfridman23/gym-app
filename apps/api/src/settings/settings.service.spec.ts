@@ -21,7 +21,10 @@ describe('SettingsService', () => {
   });
 
   it('returns the stored value', async () => {
-    db.setting.findUnique.mockResolvedValue({ key: 'sms.driver', value: 'twilio' });
+    db.setting.findUnique.mockResolvedValue({
+      key: 'sms.driver',
+      value: 'twilio',
+    });
     await expect(service.get('sms.driver')).resolves.toBe('twilio');
   });
 
@@ -35,7 +38,9 @@ describe('SettingsService', () => {
       { key: 'twilio.api_key', value: 'SK1' },
       { key: 'twilio.api_secret', value: 'secret' },
     ]);
-    await expect(service.getMany(['twilio.api_key', 'twilio.api_secret'])).resolves.toEqual({
+    await expect(
+      service.getMany(['twilio.api_key', 'twilio.api_secret']),
+    ).resolves.toEqual({
       'twilio.api_key': 'SK1',
       'twilio.api_secret': 'secret',
     });
@@ -66,6 +71,8 @@ describe('SettingsService', () => {
 
   it('does not swallow a failed settings write', async () => {
     db.setting.upsert.mockRejectedValue(new Error('owner connection down'));
-    await expect(service.set('sms.driver', '019')).rejects.toThrow('owner connection down');
+    await expect(service.set('sms.driver', '019')).rejects.toThrow(
+      'owner connection down',
+    );
   });
 });

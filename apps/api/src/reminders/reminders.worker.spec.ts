@@ -14,9 +14,13 @@ const ENV = {
   SMS_DRIVER: '019',
 };
 
-function configOf(values: Record<string, string | undefined> = {}): ConfigService {
+function configOf(
+  values: Record<string, string | undefined> = {},
+): ConfigService {
   const merged = { ...ENV, ...values };
-  return { get: (key: string) => merged[key as keyof typeof merged] } as ConfigService;
+  return {
+    get: (key: string) => merged[key as keyof typeof merged],
+  } as ConfigService;
 }
 
 function sessionRow(overrides: Record<string, unknown> = {}) {
@@ -45,9 +49,15 @@ interface Harness {
   worker: RemindersWorker;
   db: {
     $queryRaw: ReturnType<typeof vi.fn>;
-    session: { findMany: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
+    session: {
+      findMany: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
+    };
   };
-  sms: { sendText: ReturnType<typeof vi.fn>; sendOtp: ReturnType<typeof vi.fn> };
+  sms: {
+    sendText: ReturnType<typeof vi.fn>;
+    sendOtp: ReturnType<typeof vi.fn>;
+  };
   /** Full SQL text of the claim statement, with parameters interpolated out. */
   claimSql: () => string;
   claimParams: () => unknown[];
@@ -65,14 +75,20 @@ function harness(
       update: vi.fn().mockResolvedValue({}),
     },
   };
-  const sms = { sendText: vi.fn().mockResolvedValue(undefined), sendOtp: vi.fn() };
+  const sms = {
+    sendText: vi.fn().mockResolvedValue(undefined),
+    sendOtp: vi.fn(),
+  };
   const worker = new RemindersWorker(db as never, configOf(env), sms as never);
 
   return {
     worker,
     db,
     sms,
-    claimSql: () => (db.$queryRaw.mock.calls[0][0] as string[]).join(' ? ').replace(/\s+/g, ' '),
+    claimSql: () =>
+      (db.$queryRaw.mock.calls[0][0] as string[])
+        .join(' ? ')
+        .replace(/\s+/g, ' '),
     claimParams: () => (db.$queryRaw.mock.calls[0] as unknown[]).slice(1),
   };
 }
@@ -91,7 +107,7 @@ describe('RemindersWorker', () => {
   });
 
   describe('opt-in', () => {
-    it('does nothing at all unless REMINDERS_ENABLED is set (SMS costs money)', async () => {
+    it('does nothing at all unless REMINDERS_ENABLED is set (WhatsApp costs money)', async () => {
       const h = harness({ REMINDERS_ENABLED: undefined });
 
       expect(await h.worker.runOnce(DAYTIME)).toEqual({
@@ -144,7 +160,10 @@ describe('RemindersWorker', () => {
     });
 
     it('honours a custom window that does not wrap midnight', async () => {
-      const h = harness({ REMINDERS_QUIET_START_HOUR: '8', REMINDERS_QUIET_END_HOUR: '20' });
+      const h = harness({
+        REMINDERS_QUIET_START_HOUR: '8',
+        REMINDERS_QUIET_END_HOUR: '20',
+      });
       // 09:00 Israel is now inside the window.
       expect((await h.worker.runOnce(DAYTIME)).skipped).toBe('quiet-hours');
       // 02:00 Israel is outside it.
@@ -152,7 +171,10 @@ describe('RemindersWorker', () => {
     });
 
     it('can be turned off entirely with an empty window', async () => {
-      const h = harness({ REMINDERS_QUIET_START_HOUR: '0', REMINDERS_QUIET_END_HOUR: '0' });
+      const h = harness({
+        REMINDERS_QUIET_START_HOUR: '0',
+        REMINDERS_QUIET_END_HOUR: '0',
+      });
       expect((await h.worker.runOnce(NIGHT)).skipped).toBeUndefined();
     });
   });
@@ -161,7 +183,11 @@ describe('RemindersWorker', () => {
     it('claims and sends in one pass, then marks the session reminded', async () => {
       const h = harness();
 
-      expect(await h.worker.runOnce(DAYTIME)).toEqual({ claimed: 1, sent: 1, failed: 0 });
+      expect(await h.worker.runOnce(DAYTIME)).toEqual({
+        claimed: 1,
+        sent: 1,
+        failed: 0,
+      });
       expect(h.sms.sendText).toHaveBeenCalledTimes(1);
       expect(h.db.session.update).toHaveBeenCalledWith({
         where: { id: 'session-1' },
@@ -213,7 +239,10 @@ describe('RemindersWorker', () => {
     });
 
     it('clamps absurd configuration instead of trusting it', () => {
-      const h = harness({ REMINDERS_MAX_PER_RUN: '100000', REMINDERS_MAX_ATTEMPTS: '-4' });
+      const h = harness({
+        REMINDERS_MAX_PER_RUN: '100000',
+        REMINDERS_MAX_ATTEMPTS: '-4',
+      });
       void h.worker.runOnce(DAYTIME);
 
       const params = h.claimParams();
@@ -224,7 +253,11 @@ describe('RemindersWorker', () => {
     it('stops early when nothing is due', async () => {
       const h = harness({}, []);
 
-      expect(await h.worker.runOnce(DAYTIME)).toEqual({ claimed: 0, sent: 0, failed: 0 });
+      expect(await h.worker.runOnce(DAYTIME)).toEqual({
+        claimed: 0,
+        sent: 0,
+        failed: 0,
+      });
       expect(h.db.session.findMany).not.toHaveBeenCalled();
       expect(h.sms.sendText).not.toHaveBeenCalled();
     });
@@ -261,7 +294,11 @@ describe('RemindersWorker', () => {
     });
 
     it('never writes "null" into a message when a session has no location', async () => {
-      const h = harness({}, [{ id: 'session-1', attempts: 1 }], [sessionRow({ location: null })]);
+      const h = harness(
+        {},
+        [{ id: 'session-1', attempts: 1 }],
+        [sessionRow({ location: null })],
+      );
 
       await h.worker.runOnce(DAYTIME);
 
@@ -286,7 +323,11 @@ describe('RemindersWorker', () => {
       const h = harness();
       h.sms.sendText.mockRejectedValue(new SmsSendError('019 responded 500'));
 
-      expect(await h.worker.runOnce(DAYTIME)).toEqual({ claimed: 1, sent: 0, failed: 1 });
+      expect(await h.worker.runOnce(DAYTIME)).toEqual({
+        claimed: 1,
+        sent: 0,
+        failed: 1,
+      });
       expect(h.db.session.update).not.toHaveBeenCalled();
     });
 
@@ -299,7 +340,11 @@ describe('RemindersWorker', () => {
       const h = harness({}, rows, sessions);
       h.sms.sendText.mockRejectedValueOnce(new SmsSendError('rejected'));
 
-      expect(await h.worker.runOnce(DAYTIME)).toEqual({ claimed: 2, sent: 1, failed: 1 });
+      expect(await h.worker.runOnce(DAYTIME)).toEqual({
+        claimed: 2,
+        sent: 1,
+        failed: 1,
+      });
       expect(h.db.session.update).toHaveBeenCalledTimes(1);
       expect(h.db.session.update.mock.calls[0][0].where.id).toBe('session-2');
     });
@@ -311,7 +356,11 @@ describe('RemindersWorker', () => {
         [sessionRow({ client: { id: 'c', name: 'רון', phone: 'לא-טלפון' } })],
       );
 
-      expect(await h.worker.runOnce(DAYTIME)).toEqual({ claimed: 1, sent: 0, failed: 1 });
+      expect(await h.worker.runOnce(DAYTIME)).toEqual({
+        claimed: 1,
+        sent: 0,
+        failed: 1,
+      });
       expect(h.sms.sendText).not.toHaveBeenCalled();
       expect(h.db.session.update).not.toHaveBeenCalled();
     });

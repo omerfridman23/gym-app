@@ -20,7 +20,7 @@ export class HealthService {
 
     return {
       status: reachable ? 'ok' : 'degraded',
-      service: 'gym-app-api',
+      service: 'coachos-api',
       message: reachable ? 'service is healthy' : 'database is unreachable',
       timestamp: new Date().toISOString(),
       database: { reachable, latencyMs },

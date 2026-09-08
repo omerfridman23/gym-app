@@ -16,6 +16,10 @@ function coachRow(overrides: Record<string, unknown> = {}) {
     onboardedAt: new Date('2026-01-01T00:00:00.000Z'),
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     deletedAt: null,
+    bookingSlug: null,
+    bookingEnabled: false,
+    bookingStartHour: 8,
+    bookingEndHour: 21,
     ...overrides,
   };
 }
@@ -24,6 +28,10 @@ describe('toProfile', () => {
   it('returns exactly the public coach profile contract', () => {
     const profile = toProfile(coachRow({ secret: 'do-not-leak' }) as never);
     expect(Object.keys(profile).sort()).toEqual([
+      'bookingEnabled',
+      'bookingEndHour',
+      'bookingSlug',
+      'bookingStartHour',
       'cancellationPolicy',
       'defaultPriceAgorot',
       'id',
@@ -39,7 +47,9 @@ describe('toProfile', () => {
 
   it('marks onboarded only when onboardedAt is non-null', () => {
     expect(toProfile(coachRow() as never).onboarded).toBe(true);
-    expect(toProfile(coachRow({ onboardedAt: null }) as never).onboarded).toBe(false);
+    expect(toProfile(coachRow({ onboardedAt: null }) as never).onboarded).toBe(
+      false,
+    );
   });
 
   it.each([null, 'string', 42, true, ['x']])(
@@ -51,7 +61,9 @@ describe('toProfile', () => {
 
   it('preserves a valid template object', () => {
     const templates = { reminder: 'שלום {שם}', debt: 'חוב {סכום}' };
-    expect(toProfile(coachRow({ templates }) as never).templates).toEqual(templates);
+    expect(toProfile(coachRow({ templates }) as never).templates).toEqual(
+      templates,
+    );
   });
 });
 
@@ -59,20 +71,34 @@ describe('CoachesService.getMe', () => {
   it('uses withCoach and excludes soft-deleted coaches', async () => {
     const findFirst = vi.fn().mockResolvedValue(coachRow());
     const tx = { coach: { findFirst } };
-    const withCoach = vi.fn((_id: string, fn: (value: typeof tx) => unknown) => fn(tx));
-    const service = new CoachesService({ withCoach } as unknown as PrismaService);
+    const withCoach = vi.fn((_id: string, fn: (value: typeof tx) => unknown) =>
+      fn(tx),
+    );
+    const service = new CoachesService({
+      withCoach,
+    } as unknown as PrismaService);
 
-    await expect(service.getMe('coach-1')).resolves.toMatchObject({ id: 'coach-1' });
+    await expect(service.getMe('coach-1')).resolves.toMatchObject({
+      id: 'coach-1',
+    });
     expect(withCoach).toHaveBeenCalledWith('coach-1', expect.any(Function));
-    expect(findFirst).toHaveBeenCalledWith({ where: { id: 'coach-1', deletedAt: null } });
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { id: 'coach-1', deletedAt: null },
+    });
   });
 
   it('throws 404 when RLS hides another coach', async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
     const tx = { coach: { findFirst } };
-    const withCoach = vi.fn((_id: string, fn: (value: typeof tx) => unknown) => fn(tx));
-    const service = new CoachesService({ withCoach } as unknown as PrismaService);
+    const withCoach = vi.fn((_id: string, fn: (value: typeof tx) => unknown) =>
+      fn(tx),
+    );
+    const service = new CoachesService({
+      withCoach,
+    } as unknown as PrismaService);
 
-    await expect(service.getMe('other-coach')).rejects.toThrow(NotFoundException);
+    await expect(service.getMe('other-coach')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });

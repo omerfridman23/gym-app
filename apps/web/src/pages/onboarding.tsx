@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Dumbbell, Target } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useVertical } from '@/lib/vertical-context'
 import { type Vertical } from '@/lib/vertical-config'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 
 const VERTICALS: { id: Vertical; label: string; desc: string; icon: React.ReactNode }[] = [
   { id: 'padel', label: 'מאמן פאדל', desc: 'אימונים על המגרש, שחקנים, זוגות וקבוצות', icon: <Target className="size-6" /> },
@@ -44,6 +45,7 @@ export default function OnboardingPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-canvas px-5 py-8">
+      <ThemeSwitcher />
       {/* Progress */}
       <div className="flex items-center gap-2">
         {[0, 1].map((i) => (

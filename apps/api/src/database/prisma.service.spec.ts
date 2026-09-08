@@ -9,7 +9,9 @@ describe('PrismaService.withCoach', () => {
       return 1;
     });
     const tx = { $executeRaw: executeRaw };
-    const transaction = vi.fn(async (fn: (value: typeof tx) => unknown) => fn(tx));
+    const transaction = vi.fn(async (fn: (value: typeof tx) => unknown) =>
+      fn(tx),
+    );
     const fake = { $transaction: transaction };
 
     const result = await PrismaService.prototype.withCoach.call(
@@ -38,7 +40,9 @@ describe('PrismaService.withCoach', () => {
         return Promise.resolve(1);
       }),
     };
-    const fake = { $transaction: (fn: (value: typeof tx) => unknown) => fn(tx) };
+    const fake = {
+      $transaction: (fn: (value: typeof tx) => unknown) => fn(tx),
+    };
 
     await PrismaService.prototype.withCoach.call(
       fake,
@@ -46,13 +50,19 @@ describe('PrismaService.withCoach', () => {
       async () => undefined,
     );
 
-    expect(strings?.join('?')).toBe("SELECT set_config('app.coach_id', ?, true)");
+    expect(strings?.join('?')).toBe(
+      "SELECT set_config('app.coach_id', ?, true)",
+    );
     expect(values).toEqual(["x'); DROP TABLE coaches; --"]);
   });
 
   it('never runs the callback when setting the RLS context fails', async () => {
-    const tx = { $executeRaw: vi.fn().mockRejectedValue(new Error('set_config failed')) };
-    const fake = { $transaction: (fn: (value: typeof tx) => unknown) => fn(tx) };
+    const tx = {
+      $executeRaw: vi.fn().mockRejectedValue(new Error('set_config failed')),
+    };
+    const fake = {
+      $transaction: (fn: (value: typeof tx) => unknown) => fn(tx),
+    };
     const callback = vi.fn();
 
     await expect(
@@ -63,7 +73,9 @@ describe('PrismaService.withCoach', () => {
 
   it('propagates callback failures so the transaction can roll back', async () => {
     const tx = { $executeRaw: vi.fn().mockResolvedValue(1) };
-    const fake = { $transaction: (fn: (value: typeof tx) => unknown) => fn(tx) };
+    const fake = {
+      $transaction: (fn: (value: typeof tx) => unknown) => fn(tx),
+    };
 
     await expect(
       PrismaService.prototype.withCoach.call(fake, 'coach-1', async () => {

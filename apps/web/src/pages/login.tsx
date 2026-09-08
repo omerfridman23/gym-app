@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router'
 import { ArrowLeft, MessageSquareText, Phone } from 'lucide-react'
 import { ApiError, authApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -61,12 +62,13 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-canvas px-5 py-8">
+      <ThemeSwitcher />
       <div className="flex flex-1 flex-col justify-center">
         <div className="mb-10 text-center">
           <span className="mx-auto flex size-16 items-center justify-center rounded-3xl bg-court text-white shadow-btn">
             {step === 'phone' ? <Phone className="size-7" /> : <MessageSquareText className="size-7" />}
           </span>
-          <h1 className="mt-6 text-3xl font-bold text-ink">המאמן</h1>
+          <h1 className="mt-6 text-3xl font-bold text-ink">CoachOS</h1>
           <p className="mt-2 text-muted">
             {step === 'phone' ? 'נכנסים עם מספר הטלפון, בלי סיסמאות' : `שלחנו קוד בן 6 ספרות ל־${phone}`}
           </p>

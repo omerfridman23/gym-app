@@ -2,7 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SmsSendError, TextSmsProvider } from './sms-provider.js';
 
-export const SMS019_ENV_KEYS = ['SMS_019_USERNAME', 'SMS_019_TOKEN', 'SMS_019_SOURCE'] as const;
+export const SMS019_ENV_KEYS = [
+  'SMS_019_USERNAME',
+  'SMS_019_TOKEN',
+  'SMS_019_SOURCE',
+] as const;
 
 const ENDPOINT = 'https://019sms.co.il/api';
 
@@ -59,10 +63,14 @@ export class Sms019Provider extends TextSmsProvider {
     }
 
     // 019 returns HTTP 200 even for logical failures; status 0 means accepted.
-    const body = (await response.json().catch(() => null)) as { status?: number } | null;
+    const body = (await response.json().catch(() => null)) as {
+      status?: number;
+    } | null;
     if (!body || body.status !== 0) {
       const status = body?.status ?? 'unknown';
-      this.logger.error(`019 rejected message to ${phone} with status ${status}`);
+      this.logger.error(
+        `019 rejected message to ${phone} with status ${status}`,
+      );
       throw new SmsSendError(`019 rejected with status ${status}`);
     }
   }

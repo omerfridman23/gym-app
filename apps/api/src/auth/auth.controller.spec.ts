@@ -16,9 +16,13 @@ function makeController(nodeEnv?: string) {
   const requestOtp = vi.fn().mockResolvedValue(undefined);
   const verifyOtp = vi.fn().mockResolvedValue({ token: 'signed.jwt', coach });
   const toSession = vi.fn().mockReturnValue(coach);
-  const findFirst = vi.fn().mockResolvedValue({ ...coach, onboardedAt: new Date() });
+  const findFirst = vi
+    .fn()
+    .mockResolvedValue({ ...coach, onboardedAt: new Date() });
   const tx = { coach: { findFirst } };
-  const withCoach = vi.fn((_id: string, fn: (value: typeof tx) => unknown) => fn(tx));
+  const withCoach = vi.fn((_id: string, fn: (value: typeof tx) => unknown) =>
+    fn(tx),
+  );
   const config = { get: vi.fn().mockReturnValue(nodeEnv) };
   const response = { cookie: vi.fn(), clearCookie: vi.fn() };
 
@@ -41,15 +45,20 @@ function makeController(nodeEnv?: string) {
 describe('AuthController', () => {
   it('forwards an OTP request and returns no body', async () => {
     const h = makeController();
-    await expect(h.controller.requestOtp({ phone: '0501234567' })).resolves.toBeUndefined();
+    await expect(
+      h.controller.requestOtp({ phone: '0501234567' }),
+    ).resolves.toBeUndefined();
     expect(h.requestOtp).toHaveBeenCalledWith('0501234567');
   });
 
-  it.each([undefined, null])('normalizes a %j OTP request body to an empty phone', async (body) => {
-    const h = makeController();
-    await h.controller.requestOtp(body as never);
-    expect(h.requestOtp).toHaveBeenCalledWith('');
-  });
+  it.each([undefined, null])(
+    'normalizes a %j OTP request body to an empty phone',
+    async (body) => {
+      const h = makeController();
+      await h.controller.requestOtp(body as never);
+      expect(h.requestOtp).toHaveBeenCalledWith('');
+    },
+  );
 
   it('sets a secure cross-site cookie in production', async () => {
     const h = makeController('production');
@@ -102,7 +111,9 @@ describe('AuthController', () => {
 
   it('scopes /me by the authenticated coach and excludes soft-deleted rows', async () => {
     const h = makeController();
-    await expect(h.controller.me('coach-1')).resolves.toEqual({ coach: h.coach });
+    await expect(h.controller.me('coach-1')).resolves.toEqual({
+      coach: h.coach,
+    });
     expect(h.withCoach).toHaveBeenCalledWith('coach-1', expect.any(Function));
     expect(h.findFirst).toHaveBeenCalledWith({
       where: { id: 'coach-1', deletedAt: null },

@@ -13,7 +13,12 @@ import {
 } from './reminders.template.js';
 
 // Re-exported so callers (and tests) can keep importing them from here.
-export { DEFAULT_REMINDER_TEMPLATE, fillTemplate, israelTime, toWhatsappNumber };
+export {
+  DEFAULT_REMINDER_TEMPLATE,
+  fillTemplate,
+  israelTime,
+  toWhatsappNumber,
+};
 
 /**
  * Reminder scheduling. The app sends reminders over WhatsApp links (there is
@@ -58,14 +63,21 @@ export class RemindersService {
    * Sessions whose reminder is due now: starting within the coach's reminder
    * window, not yet reminded, and still expecting the client to show up.
    */
-  async listDue(coachId: string, now: Date = new Date()): Promise<DueReminder[]> {
+  async listDue(
+    coachId: string,
+    now: Date = new Date(),
+  ): Promise<DueReminder[]> {
     const origin = this.webOrigin();
 
     return this.prisma.withCoach(coachId, async (tx) => {
-      const coach = await tx.coach.findFirst({ where: { id: coachId, deletedAt: null } });
+      const coach = await tx.coach.findFirst({
+        where: { id: coachId, deletedAt: null },
+      });
       if (!coach) throw new NotFoundException();
 
-      const windowEnd = new Date(now.getTime() + coach.reminderHoursBefore * MS_PER_HOUR);
+      const windowEnd = new Date(
+        now.getTime() + coach.reminderHoursBefore * MS_PER_HOUR,
+      );
       const sessions = await tx.session.findMany({
         where: {
           deletedAt: null,
@@ -80,10 +92,13 @@ export class RemindersService {
         orderBy: { startsAt: 'asc' },
       });
 
-      const template = toProfile(coach).templates.reminder || DEFAULT_REMINDER_TEMPLATE;
+      const template =
+        toProfile(coach).templates.reminder || DEFAULT_REMINDER_TEMPLATE;
 
       return sessions
-        .filter((session) => session.client && session.client.deletedAt === null)
+        .filter(
+          (session) => session.client && session.client.deletedAt === null,
+        )
         .map((session) => {
           const confirmUrl = `${origin}/confirm/${session.confirmToken}`;
           const message = fillTemplate(
@@ -117,10 +132,15 @@ export class RemindersService {
   /** Marks a reminder as sent so it drops out of the due list. */
   markSent(coachId: string, sessionId: string): Promise<Session> {
     return this.prisma.withCoach(coachId, async (tx) => {
-      const existing = await tx.session.findFirst({ where: { id: sessionId, deletedAt: null } });
+      const existing = await tx.session.findFirst({
+        where: { id: sessionId, deletedAt: null },
+      });
       if (!existing) throw new NotFoundException();
 
-      return tx.session.update({ where: { id: sessionId }, data: { reminderSent: true } });
+      return tx.session.update({
+        where: { id: sessionId },
+        data: { reminderSent: true },
+      });
     });
   }
 }

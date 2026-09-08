@@ -1,15 +1,15 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { BarChart3, Check, MessageCircle } from 'lucide-react'
+import { BarChart3, Check, MessageCircle, PartyPopper, Send } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { InitialsAvatar } from '@/components/initials-avatar'
 import { BottomSheet } from '@/components/bottom-sheet'
 import { debtors, useData, type Debtor } from '@/lib/data'
 import { daysAgoLabel, formatShekel } from '@/lib/format'
 import { fillTemplate } from '@/lib/templates'
-import { waLink } from '@/lib/whatsapp'
+import { isWhatsappPhone, waLink } from '@/lib/whatsapp'
 import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/mock-data'
 
 export default function DebtsPage() {
@@ -18,8 +18,21 @@ export default function DebtsPage() {
   const [method, setMethod] = useState<PaymentMethod>('bit')
   // Amount collected in this screen visit (for the "collected" banner).
   const [totalCollected, setTotalCollected] = useState(0)
+  // "Nudge all" guided flow: index into the debtor list, -1 = closed.
+  const [nudgeIndex, setNudgeIndex] = useState(-1)
+  const [nudgeSent, setNudgeSent] = useState(0)
+  const nudgeActionRef = useRef<HTMLAnchorElement | HTMLButtonElement>(null)
 
   const list = useMemo(() => debtors(ds), [ds])
+  const nudgeList = useMemo(
+    () => list.filter((d) => isWhatsappPhone(d.client.phone)),
+    [list],
+  )
+  const invalidPhoneCount = list.length - nudgeList.length
+
+  useEffect(() => {
+    if (nudgeIndex > 0) nudgeActionRef.current?.focus()
+  }, [nudgeIndex])
 
   const total = list.reduce((sum, d) => sum + d.amount, 0)
 
@@ -57,6 +70,19 @@ export default function DebtsPage() {
           <p className="mt-3 text-sm font-medium text-white/85">
             {list.length > 0 ? `מ-${list.length} ${config.terms.clients}` : 'הכל שולם'}
           </p>
+          {list.length > 1 && nudgeList.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setNudgeIndex(0)
+                setNudgeSent(0)
+              }}
+              className="mx-auto mt-4 flex items-center justify-center gap-1.5 rounded-full bg-white/15 px-5 py-2.5 text-sm font-bold text-white ring-1 ring-white/30 backdrop-blur transition active:scale-[0.97]"
+            >
+              <Send className="size-4" />
+              בקש תשלום בוואטסאפ ({nudgeList.length})
+            </button>
+          ) : null}
         </section>
 
         {totalCollected > 0 ? (
@@ -96,15 +122,21 @@ export default function DebtsPage() {
                   <p className="ltr-nums shrink-0 text-xl font-extrabold text-owed">{formatShekel(d.amount)}</p>
                 </div>
                 <div className="mt-3 flex gap-2">
-                  <a
-                    href={waLink(d.client.phone, debtMessage(d))}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-ink py-2.5 text-sm font-bold text-canvas shadow-sm transition active:scale-[0.98]"
-                  >
-                    <MessageCircle className="size-4" />
-                    בקש תשלום
-                  </a>
+                  {isWhatsappPhone(d.client.phone) ? (
+                    <a
+                      href={waLink(d.client.phone, debtMessage(d))}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-ink py-2.5 text-sm font-bold text-canvas shadow-sm transition active:scale-[0.98]"
+                    >
+                      <MessageCircle className="size-4" />
+                      בקש תשלום
+                    </a>
+                  ) : (
+                    <span className="flex flex-1 items-center justify-center rounded-xl bg-surface-2 py-2.5 text-sm font-bold text-muted">
+                      טלפון לא תקין
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -122,6 +154,95 @@ export default function DebtsPage() {
           </ul>
         )}
       </div>
+
+      {/* "Nudge all": one tap per debtor, each opens a prefilled WhatsApp.
+          Browsers only allow one window per user gesture, so the flow steps
+          through the list instead of opening everything at once. */}
+      <BottomSheet
+        open={nudgeIndex >= 0}
+        onClose={() => setNudgeIndex(-1)}
+        title="תזכורות תשלום"
+      >
+        {nudgeIndex >= 0 && nudgeIndex < nudgeList.length ? (
+          (() => {
+            const d = nudgeList[nudgeIndex]
+            return (
+              <div className="flex flex-col gap-4">
+                <p
+                  className="text-center text-sm font-semibold text-muted"
+                  aria-live="polite"
+                >
+                  {nudgeIndex + 1} מתוך {nudgeList.length}
+                </p>
+                {invalidPhoneCount > 0 ? (
+                  <p className="text-center text-xs font-semibold text-owed">
+                    {invalidPhoneCount} לא נכללו בגלל מספר טלפון לא תקין
+                  </p>
+                ) : null}
+                <div className="flex items-center gap-3 rounded-2xl bg-surface-2 px-4 py-4">
+                  <InitialsAvatar name={d.client.name} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-bold text-ink">{d.client.name}</p>
+                    <p className="mt-0.5 text-sm font-medium text-muted">
+                      {d.sessions.length} אימונים · {daysAgoLabel(d.lastDateISO, today)}
+                    </p>
+                  </div>
+                  <p className="ltr-nums shrink-0 text-xl font-extrabold text-owed">
+                    {formatShekel(d.amount)}
+                  </p>
+                </div>
+                <a
+                  ref={nudgeActionRef as React.Ref<HTMLAnchorElement>}
+                  href={waLink(d.client.phone, debtMessage(d))}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    setNudgeSent((n) => n + 1)
+                    setNudgeIndex((i) => i + 1)
+                  }}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-court-gradient py-4 text-base font-bold text-white shadow-md transition active:scale-[0.98]"
+                >
+                  <MessageCircle className="size-5" />
+                  פתח בוואטסאפ
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setNudgeIndex((i) => i + 1)}
+                  className="w-full rounded-2xl bg-surface-2 py-3 text-sm font-bold text-muted transition active:scale-[0.98]"
+                >
+                  דלג
+                </button>
+              </div>
+            )
+          })()
+        ) : nudgeIndex >= nudgeList.length ? (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="flex size-16 items-center justify-center rounded-full bg-paid-tint">
+              <PartyPopper className="size-8 text-paid" />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-ink">
+                {nudgeSent > 0
+                  ? `נפתחו ${nudgeSent} שיחות בוואטסאפ`
+                  : 'לא נפתחו שיחות'}
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                {nudgeSent > 0
+                  ? 'ודאו שלחצתם שליחה בכל שיחה שנפתחה.'
+                  : 'אפשר לחזור לזה בכל רגע.'}
+              </p>
+            </div>
+            <button
+              ref={nudgeActionRef as React.Ref<HTMLButtonElement>}
+              type="button"
+              onClick={() => setNudgeIndex(-1)}
+              className="w-full rounded-2xl bg-ink py-3.5 text-base font-bold text-canvas transition active:scale-[0.98]"
+            >
+              סגור
+            </button>
+          </div>
+        ) : null}
+      </BottomSheet>
 
       <BottomSheet
         open={payFor !== null}

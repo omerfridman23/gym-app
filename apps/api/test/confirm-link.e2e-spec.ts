@@ -5,15 +5,25 @@
  * the happy path works and that the endpoints stay tight-lipped.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createE2eApp, login, type E2eContext, type LoggedInCoach } from './e2e-app.js';
+import {
+  createE2eApp,
+  login,
+  type E2eContext,
+  type LoggedInCoach,
+} from './e2e-app.js';
 
 describe('public links (e2e)', () => {
   let ctx: E2eContext;
   let coach: LoggedInCoach;
   let clientId: string;
+  let bookingSequence = 0;
 
   /** Books a session that is close enough to be reminder-due. */
   async function bookSoon(): Promise<{ id: string; confirmToken: string }> {
+    const startsAt = new Date(
+      Date.now() + (2 + bookingSequence * 2) * 3_600_000,
+    ).toISOString();
+    bookingSequence += 1;
     const booked = await ctx
       .http()
       .post('/api/sessions')
@@ -21,7 +31,7 @@ describe('public links (e2e)', () => {
       .send({
         clientId,
         typeId: 'private',
-        startsAt: new Date(Date.now() + 2 * 3_600_000).toISOString(),
+        startsAt,
         location: 'מגרש 1',
         priceAgorot: 12000,
       })
@@ -56,7 +66,10 @@ describe('public links (e2e)', () => {
   it('shows the session to whoever holds the link, with no session cookie', async () => {
     const session = await bookSoon();
 
-    const info = await ctx.http().get(`/api/public/confirm/${session.confirmToken}`).expect(200);
+    const info = await ctx
+      .http()
+      .get(`/api/public/confirm/${session.confirmToken}`)
+      .expect(200);
 
     expect(info.body.info).toMatchObject({
       clientFirstName: 'רון',
@@ -69,7 +82,10 @@ describe('public links (e2e)', () => {
   it('gives away no phone numbers, ids or surnames', async () => {
     const session = await bookSoon();
 
-    const info = await ctx.http().get(`/api/public/confirm/${session.confirmToken}`).expect(200);
+    const info = await ctx
+      .http()
+      .get(`/api/public/confirm/${session.confirmToken}`)
+      .expect(200);
 
     const body = JSON.stringify(info.body);
     expect(body).not.toContain('0545551201');
@@ -81,8 +97,14 @@ describe('public links (e2e)', () => {
   it('confirms the session and takes it out of the coach reminder queue', async () => {
     const session = await bookSoon();
 
-    const due = await ctx.http().get('/api/reminders/due').set('Cookie', coach.cookie).expect(200);
-    expect(due.body.reminders.map((r: { sessionId: string }) => r.sessionId)).toContain(session.id);
+    const due = await ctx
+      .http()
+      .get('/api/reminders/due')
+      .set('Cookie', coach.cookie)
+      .expect(200);
+    expect(
+      due.body.reminders.map((r: { sessionId: string }) => r.sessionId),
+    ).toContain(session.id);
 
     const answered = await ctx
       .http()
@@ -92,10 +114,14 @@ describe('public links (e2e)', () => {
     expect(answered.body.info.status).toBe('confirmed');
 
     // Answered sessions must stop nagging the coach.
-    const after = await ctx.http().get('/api/reminders/due').set('Cookie', coach.cookie).expect(200);
-    expect(after.body.reminders.map((r: { sessionId: string }) => r.sessionId)).not.toContain(
-      session.id,
-    );
+    const after = await ctx
+      .http()
+      .get('/api/reminders/due')
+      .set('Cookie', coach.cookie)
+      .expect(200);
+    expect(
+      after.body.reminders.map((r: { sessionId: string }) => r.sessionId),
+    ).not.toContain(session.id);
   });
 
   it('cancels the session when the client declines, with a reason', async () => {
@@ -109,8 +135,14 @@ describe('public links (e2e)', () => {
 
     expect(answered.body.info.status).toBe('cancelled');
 
-    const owner = await ctx.http().get('/api/sessions').set('Cookie', coach.cookie).expect(200);
-    const cancelled = owner.body.sessions.find((s: { id: string }) => s.id === session.id);
+    const owner = await ctx
+      .http()
+      .get('/api/sessions')
+      .set('Cookie', coach.cookie)
+      .expect(200);
+    const cancelled = owner.body.sessions.find(
+      (s: { id: string }) => s.id === session.id,
+    );
     expect(cancelled.cancelReason).toBe('ביטל/ה דרך הקישור');
   });
 
@@ -128,7 +160,10 @@ describe('public links (e2e)', () => {
 
   it('reveals nothing for a token that is not a real session', async () => {
     // A well-formed UUID that was never issued, plus outright garbage.
-    await ctx.http().get('/api/public/confirm/3f2504e0-4f89-41d3-9a0c-0305e82c3301').expect(404);
+    await ctx
+      .http()
+      .get('/api/public/confirm/3f2504e0-4f89-41d3-9a0c-0305e82c3301')
+      .expect(404);
     await ctx.http().get('/api/public/confirm/not-a-uuid').expect(404);
     await ctx.http().get("/api/public/confirm/' OR 1=1--").expect(404);
   });
@@ -150,14 +185,26 @@ describe('public links (e2e)', () => {
       data: { deletedAt: new Date() },
     });
 
-    await ctx.http().get(`/api/public/confirm/${session.confirmToken}`).expect(404);
+    await ctx
+      .http()
+      .get(`/api/public/confirm/${session.confirmToken}`)
+      .expect(404);
   });
 
   it('serves the pay link by client id and 404s for anything else', async () => {
-    const info = await ctx.http().get(`/api/public/pay/${clientId}`).expect(200);
-    expect(info.body.info).toMatchObject({ clientFirstName: 'רון', coachName: 'דנה כהן' });
+    const info = await ctx
+      .http()
+      .get(`/api/public/pay/${clientId}`)
+      .expect(200);
+    expect(info.body.info).toMatchObject({
+      clientFirstName: 'רון',
+      coachName: 'דנה כהן',
+    });
 
-    await ctx.http().get('/api/public/pay/3f2504e0-4f89-41d3-9a0c-0305e82c3301').expect(404);
+    await ctx
+      .http()
+      .get('/api/public/pay/3f2504e0-4f89-41d3-9a0c-0305e82c3301')
+      .expect(404);
     await ctx.http().get('/api/public/pay/nonsense').expect(404);
   });
 });

@@ -18,13 +18,17 @@ const confirmInfo = {
 const payInfo = {
   clientFirstName: 'יוסי',
   coachName: 'דני המאמן',
-  sessions: [{ id: 's1', startsAt: '2026-09-01T15:00:00.000Z', priceAgorot: 18_000 }],
+  sessions: [
+    { id: 's1', startsAt: '2026-09-01T15:00:00.000Z', priceAgorot: 18_000 },
+  ],
   totalAgorot: 18_000,
 };
 
 function makeController() {
   const getConfirmInfo = vi.fn().mockResolvedValue(confirmInfo);
-  const answer = vi.fn().mockResolvedValue({ ...confirmInfo, status: 'confirmed' });
+  const answer = vi
+    .fn()
+    .mockResolvedValue({ ...confirmInfo, status: 'confirmed' });
   const getPayInfo = vi.fn().mockResolvedValue(payInfo);
   const controller = new PublicController({
     getConfirmInfo,
@@ -38,7 +42,9 @@ describe('PublicController', () => {
   describe('getConfirm', () => {
     it('wraps the info in an { info } envelope', async () => {
       const { controller } = makeController();
-      await expect(controller.getConfirm(TOKEN)).resolves.toEqual({ info: confirmInfo });
+      await expect(controller.getConfirm(TOKEN)).resolves.toEqual({
+        info: confirmInfo,
+      });
     });
 
     it('forwards the route token as-is', async () => {
@@ -50,14 +56,18 @@ describe('PublicController', () => {
     it('lets a NotFound from the service bubble up', async () => {
       const { controller, getConfirmInfo } = makeController();
       getConfirmInfo.mockRejectedValue(new NotFoundException());
-      await expect(controller.getConfirm('nope')).rejects.toThrow(NotFoundException);
+      await expect(controller.getConfirm('nope')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('answer', () => {
     it('accepts confirm and wraps the updated info', async () => {
       const { controller, answer } = makeController();
-      await expect(controller.answer(TOKEN, { answer: 'confirm' })).resolves.toEqual({
+      await expect(
+        controller.answer(TOKEN, { answer: 'confirm' }),
+      ).resolves.toEqual({
         info: { ...confirmInfo, status: 'confirmed' },
       });
       expect(answer).toHaveBeenCalledWith(TOKEN, 'confirm');
@@ -82,13 +92,17 @@ describe('PublicController', () => {
       [{ answer: ['confirm'] }, 'an array'],
     ])('rejects %j (%s) before calling the service', async (body) => {
       const { controller, answer } = makeController();
-      await expect(controller.answer(TOKEN, body as never)).rejects.toThrow(BadRequestException);
+      await expect(controller.answer(TOKEN, body as never)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(answer).not.toHaveBeenCalled();
     });
 
     it('does not leak the rejected value in the Hebrew error', async () => {
       const { controller } = makeController();
-      const error = await controller.answer(TOKEN, { answer: 'yes' }).catch((e: unknown) => e);
+      const error = await controller
+        .answer(TOKEN, { answer: 'yes' })
+        .catch((e: unknown) => e);
       expect((error as Error).message).toBe('תשובה לא תקינה');
       expect((error as Error).message).not.toContain('yes');
     });
@@ -97,7 +111,9 @@ describe('PublicController', () => {
   describe('getPay', () => {
     it('wraps the info in an { info } envelope', async () => {
       const { controller } = makeController();
-      await expect(controller.getPay(CLIENT_ID)).resolves.toEqual({ info: payInfo });
+      await expect(controller.getPay(CLIENT_ID)).resolves.toEqual({
+        info: payInfo,
+      });
     });
 
     it('forwards the route client id as-is', async () => {
@@ -109,7 +125,9 @@ describe('PublicController', () => {
     it('lets a NotFound from the service bubble up', async () => {
       const { controller, getPayInfo } = makeController();
       getPayInfo.mockRejectedValue(new NotFoundException());
-      await expect(controller.getPay('nope')).rejects.toThrow(NotFoundException);
+      await expect(controller.getPay('nope')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

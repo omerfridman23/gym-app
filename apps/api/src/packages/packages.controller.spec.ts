@@ -19,7 +19,10 @@ function packageRow(overrides: Record<string, unknown> = {}) {
 function makeController() {
   const list = vi.fn().mockResolvedValue([packageRow()]);
   const create = vi.fn().mockResolvedValue(packageRow({ remaining: 10 }));
-  const controller = new PackagesController({ list, create } as unknown as PackagesService);
+  const controller = new PackagesController({
+    list,
+    create,
+  } as unknown as PackagesService);
   return { controller, list, create };
 }
 
@@ -35,7 +38,11 @@ describe('PackagesController', () => {
   it('wraps a new package in a { package } envelope', async () => {
     const { controller } = makeController();
     await expect(
-      controller.create(OWNER, { clientId: 'client-1', totalSessions: 10, purchasedAgorot: 150_000 }),
+      controller.create(OWNER, {
+        clientId: 'client-1',
+        totalSessions: 10,
+        purchasedAgorot: 150_000,
+      }),
     ).resolves.toEqual({ package: packageRow({ remaining: 10 }) });
   });
 

@@ -169,8 +169,9 @@ production, `dev` locally):
 
 - `twilio` — `TwilioSmsProvider`. Credentials come from the `settings` table
   (`twilio.account_sid`, `twilio.api_key`, `twilio.api_secret`,
-  `twilio.from_number`), with env as fallback. Auth uses the API key, not the
-  account SID, against Twilio's Messages API.
+  `twilio.verify_service_sid`, `twilio.whatsapp_from`), with env as fallback.
+  Login codes use Twilio Verify, so no rented SMS number is needed. Automatic
+  reminders use the separate WhatsApp sender.
 - `019` — `Sms019Provider`. Required env: `SMS_019_USERNAME`, `SMS_019_TOKEN`,
   `SMS_019_SOURCE`.
 - `dev` — `DevSmsProvider`, logs the code to the API console.
@@ -201,8 +202,10 @@ The coach's stored `vertical` is synced into `VerticalProvider` on login.
 - A session covered by a package consumes one punch and charges 0.
 - Reminder: send `reminder_hours_before` hours before `starts_at`; the client
   confirms via the public `confirm_token` link.
-- Client messages go out on WhatsApp from the coach (`wa.me`), using that
-  coach's template and `{מאמן}` name — not a shared SMS number.
+- Client reminders are sent automatically on WhatsApp from the app number
+  (`REMINDERS_ENABLED`), using that session's coach template and `{מאמן}`
+  name. The chat is the app, not the coach's personal WhatsApp. Coaches can
+  still tap a `wa.me` link to send from their own phone.
 - Cancellation reasons come from `VERTICAL_CONFIG.cancellationReasons`.
 
 ## Current status

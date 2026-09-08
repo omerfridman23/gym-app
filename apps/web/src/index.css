@@ -5,10 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
-  Design system for the coach operating tool — "ink mode".
-  Minimal, dark, high-contrast. A single accent (green) carries all
-  positive/paid meaning; debt is expressed through neutral emphasis
-  (bright foreground) rather than a second hue. Dense, fast, RTL-first.
+  Design system for the coach operating tool.
+  Default is Ocean (light, blue). The original ink mode (dark, green)
+  stays available via html.theme-ink. Dense, fast, RTL-first.
 */
 @theme inline {
   --color-canvas: var(--canvas);
@@ -61,28 +60,69 @@
   --shadow-nav: 0 -1px 0 rgba(11, 32, 27, 0.04), 0 -12px 32px -20px rgba(11, 32, 27, 0.3);
 }
 
-:root {
-  color-scheme: dark;
+:root,
+html.theme-ocean {
+  color-scheme: light;
   /* Vite build: the Assistant variable font is bundled via @fontsource */
   --font-assistant: 'Assistant Variable', 'Assistant';
-  /* canvas = the black stage behind the device frame */
+  --canvas: #e5edf5;
+  --ink: #122032;
+  --paper: #f4f8fc;
+  --surface: #ffffff;
+  --surface-2: #e9f0f8;
+  --line: #d7e2ee;
+  --court: #2563c9;
+  --court-strong: #1d4fa8;
+  --court-tint: #dce8fb;
+  --owed: #122032;
+  --owed-tint: #e9f0f8;
+  --muted: #647388;
+  --court-gradient-base: #2563c9;
+  --court-gradient-glow: rgba(255, 255, 255, 0.24);
+  --court-gradient-from: #3b78e0;
+  --court-gradient-to: #1c4fa6;
+  --owed-gradient-base: #16233a;
+  --owed-gradient-glow: rgba(255, 255, 255, 0.1);
+  --owed-gradient-from: #22344f;
+  --owed-gradient-to: #111a2b;
+  --btn-elevated-base: #ffffff;
+  --btn-elevated-glow: rgba(37, 99, 201, 0.2);
+  --btn-elevated-from: #ffffff;
+  --btn-elevated-mid: #f3f7fb;
+  --btn-elevated-to: #e8eef5;
+  --btn-elevated-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 6px 16px -8px rgba(18, 32, 50, 0.25),
+    0 0 0 1px #d7e2ee;
+}
+
+/* Original ink mode — kept intact, toggled from the header. */
+html.theme-ink {
+  color-scheme: dark;
   --canvas: #050706;
-  /* ink = primary foreground (near-white) */
   --ink: #f0f3f1;
-  /* paper = app background inside the frame */
   --paper: #0c0f0e;
-  /* surface = cards */
   --surface: #141817;
   --surface-2: #1c211f;
   --line: #262c2a;
-  /* the single accent: green for positive / paid / brand */
   --court: #32c295;
   --court-strong: #26a37d;
   --court-tint: #123027;
-  /* debt is neutral emphasis, not a second hue */
   --owed: #f0f3f1;
   --owed-tint: #1c211f;
   --muted: #828d88;
+  --court-gradient-base: #0b1210;
+  --court-gradient-glow: rgba(50, 194, 149, 0.22);
+  --court-gradient-from: #101613;
+  --court-gradient-to: #090c0b;
+  --owed-gradient-base: #0d0f0e;
+  --owed-gradient-glow: rgba(240, 243, 241, 0.08);
+  --owed-gradient-from: #161a19;
+  --owed-gradient-to: #0a0d0c;
+  --btn-elevated-base: #2b3138;
+  --btn-elevated-glow: rgba(50, 194, 149, 0.28);
+  --btn-elevated-from: #3a424b;
+  --btn-elevated-mid: #2b3138;
+  --btn-elevated-to: #21262c;
+  --btn-elevated-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 8px 20px -8px rgba(0, 0, 0, 0.65);
 }
 
 @layer base {
@@ -106,29 +146,22 @@
 }
 
 @layer utilities {
-  /* Premium hero panels — near-black base. Revenue carries a restrained
-     green glow; debt stays a neutral graphite panel (no second hue). */
+  /* Hero panels + elevated buttons follow the active theme tokens. */
   .bg-court-gradient {
-    background-color: #0b1210;
-    background-image: radial-gradient(120% 130% at 85% -10%, rgba(50, 194, 149, 0.22) 0%, rgba(11, 18, 16, 0) 58%),
-      linear-gradient(155deg, #101613 0%, #090c0b 100%);
+    background-color: var(--court-gradient-base);
+    background-image: radial-gradient(120% 130% at 85% -10%, var(--court-gradient-glow) 0%, transparent 58%),
+      linear-gradient(155deg, var(--court-gradient-from) 0%, var(--court-gradient-to) 100%);
   }
   .bg-owed-gradient {
-    background-color: #0d0f0e;
-    background-image: radial-gradient(120% 130% at 85% -10%, rgba(240, 243, 241, 0.08) 0%, rgba(13, 15, 14, 0) 58%),
-      linear-gradient(155deg, #161a19 0%, #0a0d0c 100%);
+    background-color: var(--owed-gradient-base);
+    background-image: radial-gradient(120% 130% at 85% -10%, var(--owed-gradient-glow) 0%, transparent 58%),
+      linear-gradient(155deg, var(--owed-gradient-from) 0%, var(--owed-gradient-to) 100%);
   }
-  /* Elevated graphite action button — mid-tone (not dark), with a faint
-     emerald sheen in one corner so it reads dimensional, not monotone. */
   .btn-elevated {
-    background-color: #2b3138;
-    background-image: radial-gradient(120% 140% at 88% -20%, rgba(50, 194, 149, 0.28) 0%, rgba(43, 49, 56, 0) 55%),
-      linear-gradient(160deg, #3a424b 0%, #2b3138 52%, #21262c 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 8px 20px -8px rgba(0, 0, 0, 0.65);
-  }
-  .btn-elevated:active {
-    background-image: radial-gradient(120% 140% at 88% -20%, rgba(50, 194, 149, 0.22) 0%, rgba(43, 49, 56, 0) 55%),
-      linear-gradient(160deg, #333b43 0%, #262b31 52%, #1d2126 100%);
+    background-color: var(--btn-elevated-base);
+    background-image: radial-gradient(120% 140% at 88% -20%, var(--btn-elevated-glow) 0%, transparent 55%),
+      linear-gradient(160deg, var(--btn-elevated-from) 0%, var(--btn-elevated-mid) 52%, var(--btn-elevated-to) 100%);
+    box-shadow: var(--btn-elevated-shadow);
   }
   /* Wide-tracked uppercase micro-label (Latin / numerics), WHOOP-style */
   .tracking-label {

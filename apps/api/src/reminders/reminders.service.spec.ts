@@ -38,7 +38,12 @@ function sessionRow(overrides: Record<string, unknown> = {}) {
     status: 'pending',
     reminderSent: false,
     deletedAt: null,
-    client: { id: 'client-1', name: 'רון אביב', phone: '0545551201', deletedAt: null },
+    client: {
+      id: 'client-1',
+      name: 'רון אביב',
+      phone: '0545551201',
+      deletedAt: null,
+    },
     ...overrides,
   };
 }
@@ -64,26 +69,27 @@ describe('RemindersService', () => {
       session: {
         findFirst: vi.fn().mockResolvedValue(sessionRow()),
         findMany: vi.fn().mockResolvedValue([sessionRow()]),
-        update: vi.fn().mockImplementation(({ data }) => ({ ...sessionRow(), ...data })),
+        update: vi
+          .fn()
+          .mockImplementation(({ data }) => ({ ...sessionRow(), ...data })),
       },
     };
     prisma = {
       withCoach: vi.fn((_coachId: string, fn: (t: Tx) => unknown) => fn(tx)),
     };
     config = { get: vi.fn().mockReturnValue('https://app.example.com') };
-    service = new RemindersService(
-      prisma as never,
-      config as never,
-    );
+    service = new RemindersService(prisma as never, config as never);
   });
 
   describe('helpers', () => {
     it('fills Hebrew placeholders and leaves unknown ones untouched', () => {
-      expect(fillTemplate('היי {שם}, ב-{שעה} ב{מיקום}', {
-        שם: 'רון',
-        שעה: '18:00',
-        מיקום: 'מגרש 1',
-      })).toBe('היי רון, ב-18:00 במגרש 1');
+      expect(
+        fillTemplate('היי {שם}, ב-{שעה} ב{מיקום}', {
+          שם: 'רון',
+          שעה: '18:00',
+          מיקום: 'מגרש 1',
+        }),
+      ).toBe('היי רון, ב-18:00 במגרש 1');
 
       expect(fillTemplate('שלום {לאקיים}', {})).toBe('שלום {לאקיים}');
     });
@@ -106,7 +112,10 @@ describe('RemindersService', () => {
   describe('listDue', () => {
     it('scopes the query to the coach via withCoach (RLS)', async () => {
       await service.listDue(COACH_ID);
-      expect(prisma.withCoach).toHaveBeenCalledWith(COACH_ID, expect.any(Function));
+      expect(prisma.withCoach).toHaveBeenCalledWith(
+        COACH_ID,
+        expect.any(Function),
+      );
     });
 
     it('only asks for unreminded, live sessions inside the coach window', async () => {
@@ -125,7 +134,9 @@ describe('RemindersService', () => {
     });
 
     it('honours a custom reminder window', async () => {
-      tx.coach.findFirst.mockResolvedValue(coachRow({ reminderHoursBefore: 3 }));
+      tx.coach.findFirst.mockResolvedValue(
+        coachRow({ reminderHoursBefore: 3 }),
+      );
       const now = new Date('2026-09-07T06:00:00Z');
       await service.listDue(COACH_ID, now);
 
@@ -151,8 +162,12 @@ describe('RemindersService', () => {
 
     it('builds a wa.me link with the encoded message', async () => {
       const [reminder] = await service.listDue(COACH_ID);
-      expect(reminder.whatsappUrl.startsWith('https://wa.me/972545551201?text=')).toBe(true);
-      expect(decodeURIComponent(reminder.whatsappUrl.split('?text=')[1])).toBe(reminder.message);
+      expect(
+        reminder.whatsappUrl.startsWith('https://wa.me/972545551201?text='),
+      ).toBe(true);
+      expect(decodeURIComponent(reminder.whatsappUrl.split('?text=')[1])).toBe(
+        reminder.message,
+      );
     });
 
     it("uses the coach's own template when they set one", async () => {
@@ -166,7 +181,9 @@ describe('RemindersService', () => {
     });
 
     it('falls back to the default template when the coach cleared theirs', async () => {
-      tx.coach.findFirst.mockResolvedValue(coachRow({ templates: { reminder: '' } }));
+      tx.coach.findFirst.mockResolvedValue(
+        coachRow({ templates: { reminder: '' } }),
+      );
       const [reminder] = await service.listDue(COACH_ID);
       expect(reminder.message).toContain('מזכיר לך את האימון');
       expect(DEFAULT_REMINDER_TEMPLATE).toContain('{קישור}');
@@ -183,7 +200,12 @@ describe('RemindersService', () => {
     it('skips sessions whose client was soft-deleted', async () => {
       tx.session.findMany.mockResolvedValue([
         sessionRow({
-          client: { id: 'c', name: 'X', phone: '0500000000', deletedAt: new Date() },
+          client: {
+            id: 'c',
+            name: 'X',
+            phone: '0500000000',
+            deletedAt: new Date(),
+          },
         }),
       ]);
       expect(await service.listDue(COACH_ID)).toEqual([]);
@@ -191,7 +213,9 @@ describe('RemindersService', () => {
 
     it('throws NotFound for a coach that does not exist', async () => {
       tx.coach.findFirst.mockResolvedValue(null);
-      await expect(service.listDue(COACH_ID)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.listDue(COACH_ID)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
     it('never exposes the coach phone or raw client row', async () => {
@@ -219,7 +243,10 @@ describe('RemindersService', () => {
     it('flags the session as reminded, scoped to the coach', async () => {
       const updated = await service.markSent(COACH_ID, 'session-1');
 
-      expect(prisma.withCoach).toHaveBeenCalledWith(COACH_ID, expect.any(Function));
+      expect(prisma.withCoach).toHaveBeenCalledWith(
+        COACH_ID,
+        expect.any(Function),
+      );
       expect(tx.session.update).toHaveBeenCalledWith({
         where: { id: 'session-1' },
         data: { reminderSent: true },
@@ -229,13 +256,19 @@ describe('RemindersService', () => {
 
     it('does not touch the answer flag — only the coach-side send state', async () => {
       await service.markSent(COACH_ID, 'session-1');
-      expect(tx.session.update.mock.calls[0][0].data).not.toHaveProperty('reminderAnswered');
-      expect(tx.session.update.mock.calls[0][0].data).not.toHaveProperty('status');
+      expect(tx.session.update.mock.calls[0][0].data).not.toHaveProperty(
+        'reminderAnswered',
+      );
+      expect(tx.session.update.mock.calls[0][0].data).not.toHaveProperty(
+        'status',
+      );
     });
 
     it('throws NotFound for another coach session or a deleted one', async () => {
       tx.session.findFirst.mockResolvedValue(null);
-      await expect(service.markSent(COACH_ID, 'other')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.markSent(COACH_ID, 'other')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
       expect(tx.session.update).not.toHaveBeenCalled();
     });
   });

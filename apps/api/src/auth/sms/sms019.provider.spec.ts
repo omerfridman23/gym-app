@@ -76,7 +76,9 @@ describe('Sms019Provider', () => {
     });
     const provider = new Sms019Provider(config());
 
-    const error = await provider.sendOtp('+972501234567', '123456').catch((e: unknown) => e);
+    const error = await provider
+      .sendOtp('+972501234567', '123456')
+      .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(InternalServerErrorException);
     expect((error as Error).message).toBe('שליחת הקוד נכשלה, נסו שוב');
@@ -85,28 +87,35 @@ describe('Sms019Provider', () => {
   });
 
   it('throws on a non-OK HTTP status', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
     const provider = new Sms019Provider(config());
 
-    await expect(provider.sendOtp('+972501234567', '123456')).rejects.toBeInstanceOf(
-      InternalServerErrorException,
-    );
+    await expect(
+      provider.sendOtp('+972501234567', '123456'),
+    ).rejects.toBeInstanceOf(InternalServerErrorException);
   });
 
   it('throws the same generic error when the request fails to reach 019', async () => {
     fetchMock.mockRejectedValue(new Error('ENOTFOUND 019sms.co.il'));
     const provider = new Sms019Provider(config());
 
-    await expect(provider.sendOtp('+972501234567', '654321')).rejects.toBeInstanceOf(
-      InternalServerErrorException,
-    );
+    await expect(
+      provider.sendOtp('+972501234567', '654321'),
+    ).rejects.toBeInstanceOf(InternalServerErrorException);
   });
 
   describe('sendText (reminders)', () => {
     it('sends an arbitrary message body verbatim', async () => {
       const provider = new Sms019Provider(config());
 
-      await provider.sendText('+972545551201', 'היי רון, מזכיר את האימון ב-18:00');
+      await provider.sendText(
+        '+972545551201',
+        'היי רון, מזכיר את האימון ב-18:00',
+      );
 
       const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       const payload = JSON.parse(init.body as string);
@@ -115,10 +124,16 @@ describe('Sms019Provider', () => {
     });
 
     it('reports failure as SmsSendError, not as an HTTP exception', async () => {
-      fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ status: 991 }) });
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ status: 991 }),
+      });
       const provider = new Sms019Provider(config());
 
-      const error = await provider.sendText('+972545551201', 'שלום').catch((e: unknown) => e);
+      const error = await provider
+        .sendText('+972545551201', 'שלום')
+        .catch((e: unknown) => e);
 
       // Reminders run in a worker: a 500-shaped exception would be misleading,
       // and the reason must stay loggable without leaking the token.

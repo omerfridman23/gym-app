@@ -1,4 +1,4 @@
-# Gym App — Coach Marketplace (POC)
+# CoachOS — Coach Management Platform
 
 RTL Hebrew marketplace connecting customers with independent personal coaches.
 
@@ -57,7 +57,7 @@ Copy `apps/web/.env.example` to `apps/web/.env` if the API is not on `localhost:
 ```json
 {
   "status": "ok",
-  "service": "gym-app-api",
+  "service": "coachos-api",
   "timestamp": "2026-08-31T19:00:00.000Z",
   "database": { "reachable": true, "latencyMs": 42 }
 }

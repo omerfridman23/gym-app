@@ -5,9 +5,14 @@ import { SMS019_ENV_KEYS, Sms019Provider } from './sms019.provider.js';
 import type { SmsProvider } from './sms-provider.js';
 import { TwilioSmsProvider } from './twilio-sms.provider.js';
 
-export function createSmsProvider(config: ConfigService, settings: SettingsService): SmsProvider {
+export function createSmsProvider(
+  config: ConfigService,
+  settings: SettingsService,
+): SmsProvider {
   const production = config.get('NODE_ENV') === 'production';
-  const driver = (config.get<string>('SMS_DRIVER') ?? (production ? 'twilio' : 'dev')).toLowerCase();
+  const driver = (
+    config.get<string>('SMS_DRIVER') ?? (production ? 'twilio' : 'dev')
+  ).toLowerCase();
 
   if (driver === '019') {
     for (const key of SMS019_ENV_KEYS) {
@@ -26,5 +31,7 @@ export function createSmsProvider(config: ConfigService, settings: SettingsServi
     return new DevSmsProvider();
   }
 
-  throw new Error(`Unknown SMS_DRIVER "${driver}". Use "019", "twilio", or "dev".`);
+  throw new Error(
+    `Unknown SMS_DRIVER "${driver}". Use "019", "twilio", or "dev".`,
+  );
 }

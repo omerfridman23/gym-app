@@ -31,15 +31,23 @@ export function reminderVars(input: {
  * overrides it when the app is served from a different host than the API's
  * allowed origins.
  */
-export function resolveWebOrigin(...candidates: (string | undefined)[]): string {
+export function resolveWebOrigin(
+  ...candidates: (string | undefined)[]
+): string {
   const configured = candidates.find((value) => value?.trim());
   const origin = configured?.split(',')[0].trim() ?? 'http://localhost:5173';
   return origin.replace(/\/+$/, '');
 }
 
 /** Fill a Hebrew template like "היי {שם}..."; unknown keys are left as-is. */
-export function fillTemplate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{([^}]+)\}/g, (_, key: string) => vars[key] ?? `{${key}}`);
+export function fillTemplate(
+  template: string,
+  vars: Record<string, string>,
+): string {
+  return template.replace(
+    /\{([^}]+)\}/g,
+    (_, key: string) => vars[key] ?? `{${key}}`,
+  );
 }
 
 /** "HH:MM" of a UTC instant as seen in Israel. */
@@ -93,7 +101,11 @@ export function toE164Israel(phone: string): string | null {
  * The window wraps midnight when start > end, and an empty window
  * (start === end) means "never quiet".
  */
-export function inQuietHours(date: Date, startHour: number, endHour: number): boolean {
+export function inQuietHours(
+  date: Date,
+  startHour: number,
+  endHour: number,
+): boolean {
   if (startHour === endHour) return false;
   const hour = israelHour(date);
   return startHour < endHour

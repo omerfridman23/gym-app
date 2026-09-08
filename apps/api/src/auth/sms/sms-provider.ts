@@ -14,6 +14,11 @@ export interface SmsProvider {
   /** Delivers a message. Throws `SmsSendError` when the gateway refuses. */
   sendText(phone: string, message: string): Promise<void>;
   sendOtp(phone: string, code: string): Promise<void>;
+  /**
+   * Provider-hosted verification (Twilio Verify). Undefined means AuthService
+   * verifies the locally generated code hash instead.
+   */
+  verifyOtp?(phone: string, code: string): Promise<boolean>;
 }
 
 /**

@@ -1,5 +1,5 @@
 {
-  "name": "gym-app",
+  "name": "coachos",
   "private": true,
   "scripts": {
     "build": "npm ci --prefix apps/api && npm run build --prefix apps/api",

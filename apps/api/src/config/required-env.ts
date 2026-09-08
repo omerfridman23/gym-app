@@ -52,7 +52,9 @@ export function findMissingEnv(
 }
 
 export function formatMissingEnv(missing: RequiredVar[]): string {
-  const lines = missing.map((variable) => `  - ${variable.key}: ${variable.why}`);
+  const lines = missing.map(
+    (variable) => `  - ${variable.key}: ${variable.why}`,
+  );
   return [
     `Cannot start: ${missing.length} required environment variable(s) are missing.`,
     ...lines,
@@ -64,7 +66,9 @@ export function formatMissingEnv(missing: RequiredVar[]): string {
  * ConfigModule `validate` hook — runs after the env files are merged and
  * before any other module resolves, so it beats every `getOrThrow`.
  */
-export function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
+export function validateEnv(
+  config: Record<string, unknown>,
+): Record<string, unknown> {
   const missing = findMissingEnv(config);
   if (missing.length > 0) throw new Error(formatMissingEnv(missing));
   return config;

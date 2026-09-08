@@ -1,7 +1,11 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../database/prisma.service.js';
-import { addDaysToIsoDate, israelWallClockToUtc, SessionsService } from './sessions.service.js';
+import {
+  addDaysToIsoDate,
+  israelWallClockToUtc,
+  SessionsService,
+} from './sessions.service.js';
 
 const PG_INT4_MAX = 2_147_483_647;
 const OWNER = 'coach-1';
@@ -78,7 +82,9 @@ function makeHarness(
   const sessions = rows.sessions ?? [sessionRow()];
   let scopedCoachId = '';
 
-  const visible = <T extends { coachId: string; id: string; deletedAt: Date | null }>(
+  const visible = <
+    T extends { coachId: string; id: string; deletedAt: Date | null },
+  >(
     all: T[],
     where: Where | undefined,
   ) =>
@@ -95,23 +101,37 @@ function makeHarness(
   const sessionFindFirst = vi.fn(
     async ({ where }: { where?: Where }) => visible(sessions, where)[0] ?? null,
   );
-  const sessionFindMany = vi.fn(async ({ where }: { where?: Where }) => visible(sessions, where));
+  const sessionFindMany = vi.fn(
+    async ({ where }: { where?: Where & { status?: unknown } }) =>
+      where?.status ? [] : visible(sessions, where),
+  );
+  const executeRaw = vi.fn(async () => 1);
 
   let created = 0;
-  const sessionCreate = vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
-    created += 1;
-    return sessionRow({ ...data, id: `created-${created}` });
-  });
-  const sessionUpdate = vi.fn(
-    async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) =>
-      sessionRow({ ...data, id: where.id }),
+  const sessionCreate = vi.fn(
+    async ({ data }: { data: Record<string, unknown> }) => {
+      created += 1;
+      return sessionRow({ ...data, id: `created-${created}` });
+    },
   );
-  const seriesCreate = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
-    id: 'series-1',
-    ...data,
-  }));
+  const sessionUpdate = vi.fn(
+    async ({
+      where,
+      data,
+    }: {
+      where: { id: string };
+      data: Record<string, unknown>;
+    }) => sessionRow({ ...data, id: where.id }),
+  );
+  const seriesCreate = vi.fn(
+    async ({ data }: { data: Record<string, unknown> }) => ({
+      id: 'series-1',
+      ...data,
+    }),
+  );
 
   const tx = {
+    $executeRaw: executeRaw,
     client: { findFirst: clientFindFirst },
     session: {
       findFirst: sessionFindFirst,
@@ -131,6 +151,7 @@ function makeHarness(
     clientFindFirst,
     sessionFindFirst,
     sessionFindMany,
+    executeRaw,
     sessionCreate,
     sessionUpdate,
     seriesCreate,
@@ -149,34 +170,48 @@ describe('SessionsService.list', () => {
     const h = makeHarness({
       sessions: [
         sessionRow({ id: 'live' }),
-        sessionRow({ id: 'gone', deletedAt: new Date('2026-02-01T00:00:00.000Z') }),
+        sessionRow({
+          id: 'gone',
+          deletedAt: new Date('2026-02-01T00:00:00.000Z'),
+        }),
       ],
     });
 
     const result = await h.service.list(OWNER);
 
-    expect(h.sessionFindMany.mock.calls[0][0].where).toMatchObject({ deletedAt: null });
+    expect(h.sessionFindMany.mock.calls[0][0].where).toMatchObject({
+      deletedAt: null,
+    });
     expect(result.map((s) => s.id)).toEqual(['live']);
   });
 
   it('never returns another coach sessions', async () => {
     const h = makeHarness({
-      sessions: [sessionRow({ id: 'mine' }), sessionRow({ id: 'theirs', coachId: OTHER })],
+      sessions: [
+        sessionRow({ id: 'mine' }),
+        sessionRow({ id: 'theirs', coachId: OTHER }),
+      ],
     });
 
-    await expect(h.service.list(OWNER)).resolves.toMatchObject([{ id: 'mine' }]);
+    await expect(h.service.list(OWNER)).resolves.toMatchObject([
+      { id: 'mine' },
+    ]);
   });
 
   it('sorts chronologically', async () => {
     const h = makeHarness();
     await h.service.list(OWNER);
-    expect(h.sessionFindMany.mock.calls[0][0]).toMatchObject({ orderBy: { startsAt: 'asc' } });
+    expect(h.sessionFindMany.mock.calls[0][0]).toMatchObject({
+      orderBy: { startsAt: 'asc' },
+    });
   });
 
   it('adds no date filter when no range is given', async () => {
     const h = makeHarness();
     await h.service.list(OWNER);
-    expect(h.sessionFindMany.mock.calls[0][0].where).toEqual({ deletedAt: null });
+    expect(h.sessionFindMany.mock.calls[0][0].where).toEqual({
+      deletedAt: null,
+    });
   });
 
   it('filters on a half-open range so week boundaries do not double-count', async () => {
@@ -208,25 +243,38 @@ describe('SessionsService.list', () => {
     ['2026-13-45', undefined],
     ['not-a-date', 'also-not'],
     ['NaN', undefined],
-  ])('rejects the range (%j, %j) before opening a transaction', async (from, to) => {
-    const h = makeHarness();
-    await expect(h.service.list(OWNER, from, to)).rejects.toThrow(BadRequestException);
-    expect(h.withCoach).not.toHaveBeenCalled();
-  });
+  ])(
+    'rejects the range (%j, %j) before opening a transaction',
+    async (from, to) => {
+      const h = makeHarness();
+      await expect(h.service.list(OWNER, from, to)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(h.withCoach).not.toHaveBeenCalled();
+    },
+  );
 
   it('treats an empty string as "no bound" rather than an invalid date', async () => {
     const h = makeHarness();
     await expect(h.service.list(OWNER, '', '')).resolves.toBeDefined();
-    expect(h.sessionFindMany.mock.calls[0][0].where).toEqual({ deletedAt: null });
+    expect(h.sessionFindMany.mock.calls[0][0].where).toEqual({
+      deletedAt: null,
+    });
   });
 });
 
 describe('SessionsService.create', () => {
-  function dataSentToCreate(h: ReturnType<typeof makeHarness>): Record<string, unknown> {
+  function dataSentToCreate(
+    h: ReturnType<typeof makeHarness>,
+  ): Record<string, unknown> {
     return h.sessionCreate.mock.calls[0][0].data;
   }
 
-  const valid = { clientId: 'client-1', typeId: 'private', startsAt: '2026-09-06T15:00:00Z' };
+  const valid = {
+    clientId: 'client-1',
+    typeId: 'private',
+    startsAt: '2026-09-06T15:00:00Z',
+  };
 
   describe('input validation', () => {
     it.each([
@@ -242,13 +290,17 @@ describe('SessionsService.create', () => {
       [{}, 'empty body'],
     ])('rejects %j (%s) before opening a transaction', async (input) => {
       const h = makeHarness();
-      await expect(h.service.create(OWNER, input as never)).rejects.toThrow(BadRequestException);
+      await expect(h.service.create(OWNER, input as never)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(h.withCoach).not.toHaveBeenCalled();
     });
 
     it('rejects a null body without a TypeError', async () => {
       const h = makeHarness();
-      await expect(h.service.create(OWNER, null as never)).rejects.toThrow(BadRequestException);
+      await expect(h.service.create(OWNER, null as never)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -261,25 +313,31 @@ describe('SessionsService.create', () => {
 
     it('throws 404 for an unknown client', async () => {
       const h = makeHarness();
-      await expect(h.service.create(OWNER, { ...valid, clientId: 'nope' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        h.service.create(OWNER, { ...valid, clientId: 'nope' }),
+      ).rejects.toThrow(NotFoundException);
       expect(h.sessionCreate).not.toHaveBeenCalled();
     });
 
     it('throws 404 for a soft-deleted client', async () => {
       const h = makeHarness({
-        clients: [clientRow({ deletedAt: new Date('2026-02-01T00:00:00.000Z') })],
+        clients: [
+          clientRow({ deletedAt: new Date('2026-02-01T00:00:00.000Z') }),
+        ],
       });
 
-      await expect(h.service.create(OWNER, valid)).rejects.toThrow(NotFoundException);
+      await expect(h.service.create(OWNER, valid)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(h.sessionCreate).not.toHaveBeenCalled();
     });
 
     it('throws 404 — books nothing — when the client belongs to another coach', async () => {
       const h = makeHarness({ clients: [clientRow({ coachId: OTHER })] });
 
-      await expect(h.service.create(OWNER, valid)).rejects.toThrow(NotFoundException);
+      await expect(h.service.create(OWNER, valid)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(h.sessionCreate).not.toHaveBeenCalled();
       expect(h.seriesCreate).not.toHaveBeenCalled();
     });
@@ -302,9 +360,14 @@ describe('SessionsService.create', () => {
   describe('normalization', () => {
     it('stores the start instant as UTC', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { ...valid, startsAt: '2026-09-06T15:00:00Z' });
+      await h.service.create(OWNER, {
+        ...valid,
+        startsAt: '2026-09-06T15:00:00Z',
+      });
 
-      expect(dataSentToCreate(h).startsAt).toEqual(new Date('2026-09-06T15:00:00.000Z'));
+      expect(dataSentToCreate(h).startsAt).toEqual(
+        new Date('2026-09-06T15:00:00.000Z'),
+      );
     });
 
     it('defaults the type to private when it is blank', async () => {
@@ -336,7 +399,10 @@ describe('SessionsService.create', () => {
       [Number.MAX_SAFE_INTEGER, 1440, 'absurd'],
     ])('clamps a duration of %j to %i (%s)', async (durationMin, expected) => {
       const h = makeHarness();
-      await h.service.create(OWNER, { ...valid, durationMin: durationMin as never });
+      await h.service.create(OWNER, {
+        ...valid,
+        durationMin: durationMin as never,
+      });
 
       expect(dataSentToCreate(h).durationMin).toBe(expected);
     });
@@ -348,12 +414,15 @@ describe('SessionsService.create', () => {
       expect(dataSentToCreate(h).location).toBeNull();
     });
 
-    it.each([null, undefined, ''])('stores null for a %j location', async (location) => {
-      const h = makeHarness();
-      await h.service.create(OWNER, { ...valid, location });
+    it.each([null, undefined, ''])(
+      'stores null for a %j location',
+      async (location) => {
+        const h = makeHarness();
+        await h.service.create(OWNER, { ...valid, location });
 
-      expect(dataSentToCreate(h).location).toBeNull();
-    });
+        expect(dataSentToCreate(h).location).toBeNull();
+      },
+    );
 
     // The truthiness check runs before the trim, so whitespace survives as an
     // empty string where an absent location would have been null.
@@ -366,7 +435,10 @@ describe('SessionsService.create', () => {
 
     it('trims and bounds the location', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { ...valid, location: `  ${'מ'.repeat(500)}  ` });
+      await h.service.create(OWNER, {
+        ...valid,
+        location: `  ${'מ'.repeat(500)}  `,
+      });
 
       expect((dataSentToCreate(h).location as string).length).toBe(200);
     });
@@ -382,7 +454,10 @@ describe('SessionsService.create', () => {
       [Number.MAX_SAFE_INTEGER, PG_INT4_MAX, 'absurd'],
     ])('clamps a price of %j to %i (%s)', async (priceAgorot, expected) => {
       const h = makeHarness();
-      await h.service.create(OWNER, { ...valid, priceAgorot: priceAgorot as never });
+      await h.service.create(OWNER, {
+        ...valid,
+        priceAgorot: priceAgorot as never,
+      });
 
       expect(dataSentToCreate(h).priceAgorot).toBe(expected);
     });
@@ -429,7 +504,10 @@ describe('SessionsService.create', () => {
       'treats repeatWeekly=%j as a one-off',
       async (repeatWeekly) => {
         const h = makeHarness();
-        await h.service.create(OWNER, { ...valid, repeatWeekly: repeatWeekly as never });
+        await h.service.create(OWNER, {
+          ...valid,
+          repeatWeekly: repeatWeekly as never,
+        });
 
         expect(h.seriesCreate).not.toHaveBeenCalled();
         expect(h.sessionCreate).toHaveBeenCalledTimes(1);
@@ -453,15 +531,22 @@ describe('SessionsService.create', () => {
       const h = makeHarness();
       await h.service.create(OWNER, weekly);
 
-      const seriesIds = h.sessionCreate.mock.calls.map((c) => c[0].data.seriesId);
+      const seriesIds = h.sessionCreate.mock.calls.map(
+        (c) => c[0].data.seriesId,
+      );
       expect(new Set(seriesIds)).toEqual(new Set(['series-1']));
     });
 
     it('spaces the instances one calendar week apart starting at the requested slot', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { ...weekly, startsAt: '2026-09-06T15:00:00Z' });
+      await h.service.create(OWNER, {
+        ...weekly,
+        startsAt: '2026-09-06T15:00:00Z',
+      });
 
-      const starts = h.sessionCreate.mock.calls.map((c) => c[0].data.startsAt as Date);
+      const starts = h.sessionCreate.mock.calls.map(
+        (c) => c[0].data.startsAt as Date,
+      );
       const first = new Date('2026-09-06T15:00:00.000Z');
 
       expect(starts).toHaveLength(SERIES_WEEKS);
@@ -469,13 +554,19 @@ describe('SessionsService.create', () => {
 
       // Recurrence is anchored to the Israel wall clock, so every instance
       // keeps the same local hour...
-      expect(new Set(starts.map(israelTime))).toEqual(new Set([israelTime(first)]));
+      expect(new Set(starts.map(israelTime))).toEqual(
+        new Set([israelTime(first)]),
+      );
 
       // ...which makes the absolute gap a week give or take the one-hour DST
       // shift this 12-week range crosses (Israel leaves DST on 2026-10-25).
-      const gaps = starts.slice(1).map((at, i) => at.getTime() - starts[i].getTime());
+      const gaps = starts
+        .slice(1)
+        .map((at, i) => at.getTime() - starts[i].getTime());
       for (const gap of gaps) {
-        expect([WEEK_MS - 3_600_000, WEEK_MS, WEEK_MS + 3_600_000]).toContain(gap);
+        expect([WEEK_MS - 3_600_000, WEEK_MS, WEEK_MS + 3_600_000]).toContain(
+          gap,
+        );
       }
       expect(gaps.filter((gap) => gap !== WEEK_MS)).toHaveLength(1);
     });
@@ -522,7 +613,9 @@ describe('SessionsService.create', () => {
   // startsAt is a UTC instant; weekday/timeLocal on the series row are what the
   // coach sees in Asia/Jerusalem, which is UTC+2 in winter and UTC+3 in summer.
   describe('Asia/Jerusalem derivation on the series row', () => {
-    function seriesData(h: ReturnType<typeof makeHarness>): Record<string, unknown> {
+    function seriesData(
+      h: ReturnType<typeof makeHarness>,
+    ): Record<string, unknown> {
       return h.seriesCreate.mock.calls[0][0].data;
     }
 
@@ -618,7 +711,9 @@ describe('SessionsService.create', () => {
       });
 
       const expected = seriesData(h).timeLocal as string;
-      const starts = h.sessionCreate.mock.calls.map((c) => c[0].data.startsAt as Date);
+      const starts = h.sessionCreate.mock.calls.map(
+        (c) => c[0].data.startsAt as Date,
+      );
 
       expect(starts.map(israelTime)).toEqual(starts.map(() => expected));
       expect(starts[0].toISOString()).toBe('2026-03-26T16:00:00.000Z');
@@ -633,7 +728,9 @@ describe('SessionsService.create', () => {
         repeatWeekly: true,
       });
 
-      const starts = h.sessionCreate.mock.calls.map((c) => c[0].data.startsAt as Date);
+      const starts = h.sessionCreate.mock.calls.map(
+        (c) => c[0].data.startsAt as Date,
+      );
 
       expect(starts.map(israelTime)).toEqual(starts.map(() => '18:00'));
       // Israel leaves DST on 2026-10-25, which is week 7 of this series.
@@ -649,7 +746,9 @@ describe('SessionsService.create', () => {
         repeatWeekly: true,
       });
 
-      const starts = h.sessionCreate.mock.calls.map((c) => c[0].data.startsAt as Date);
+      const starts = h.sessionCreate.mock.calls.map(
+        (c) => c[0].data.startsAt as Date,
+      );
 
       expect(starts.map(israelWeekday)).toEqual(starts.map(() => 'Sun'));
     });
@@ -662,14 +761,46 @@ describe('israelWallClockToUtc', () => {
   it.each([
     ['2026-01-04', '18:00', '2026-01-04T16:00:00.000Z', 'winter is UTC+2'],
     ['2026-07-05', '18:00', '2026-07-05T15:00:00.000Z', 'summer is UTC+3'],
-    ['2026-03-26', '18:00', '2026-03-26T16:00:00.000Z', 'the day before the spring jump'],
-    ['2026-04-02', '18:00', '2026-04-02T15:00:00.000Z', 'the week after the spring jump'],
-    ['2026-10-18', '18:00', '2026-10-18T15:00:00.000Z', 'the week before the autumn return'],
-    ['2026-10-25', '18:00', '2026-10-25T16:00:00.000Z', 'the day of the autumn return, after 02:00'],
-    ['2026-01-05', '00:00', '2026-01-04T22:00:00.000Z', 'local midnight is the previous day in UTC'],
-    ['2026-01-04', '23:30', '2026-01-04T21:30:00.000Z', 'the last half hour of the day'],
+    [
+      '2026-03-26',
+      '18:00',
+      '2026-03-26T16:00:00.000Z',
+      'the day before the spring jump',
+    ],
+    [
+      '2026-04-02',
+      '18:00',
+      '2026-04-02T15:00:00.000Z',
+      'the week after the spring jump',
+    ],
+    [
+      '2026-10-18',
+      '18:00',
+      '2026-10-18T15:00:00.000Z',
+      'the week before the autumn return',
+    ],
+    [
+      '2026-10-25',
+      '18:00',
+      '2026-10-25T16:00:00.000Z',
+      'the day of the autumn return, after 02:00',
+    ],
+    [
+      '2026-01-05',
+      '00:00',
+      '2026-01-04T22:00:00.000Z',
+      'local midnight is the previous day in UTC',
+    ],
+    [
+      '2026-01-04',
+      '23:30',
+      '2026-01-04T21:30:00.000Z',
+      'the last half hour of the day',
+    ],
   ])('maps %s %s to %s (%s)', (dateLocal, timeLocal, expected) => {
-    expect(israelWallClockToUtc(dateLocal, timeLocal).toISOString()).toBe(expected);
+    expect(israelWallClockToUtc(dateLocal, timeLocal).toISOString()).toBe(
+      expected,
+    );
   });
 
   it('round-trips every hour of the spring-forward day back to the same wall clock', () => {
@@ -677,14 +808,18 @@ describe('israelWallClockToUtc', () => {
     for (let hour = 0; hour < 24; hour += 1) {
       const timeLocal = `${String(hour).padStart(2, '0')}:00`;
       if (timeLocal === '02:00') continue;
-      expect(israelTime(israelWallClockToUtc('2026-03-27', timeLocal))).toBe(timeLocal);
+      expect(israelTime(israelWallClockToUtc('2026-03-27', timeLocal))).toBe(
+        timeLocal,
+      );
     }
   });
 
   it('round-trips every hour of the fall-back day back to the same wall clock', () => {
     for (let hour = 0; hour < 24; hour += 1) {
       const timeLocal = `${String(hour).padStart(2, '0')}:00`;
-      expect(israelTime(israelWallClockToUtc('2026-10-25', timeLocal))).toBe(timeLocal);
+      expect(israelTime(israelWallClockToUtc('2026-10-25', timeLocal))).toBe(
+        timeLocal,
+      );
     }
   });
 
@@ -726,21 +861,28 @@ describe('addDaysToIsoDate', () => {
 });
 
 describe('SessionsService.update', () => {
-  function dataSentToUpdate(h: ReturnType<typeof makeHarness>): Record<string, unknown> {
+  function dataSentToUpdate(
+    h: ReturnType<typeof makeHarness>,
+  ): Record<string, unknown> {
     return h.sessionUpdate.mock.calls[0][0].data;
   }
 
   describe('enum validation', () => {
-    it.each(['', 'DONE', 'Confirmed', 'deleted', 'pending ', 'toString', '__proto__'])(
-      'rejects the status %j before opening a transaction',
-      async (status) => {
-        const h = makeHarness();
-        await expect(
-          h.service.update(OWNER, 'session-1', { status: status as never }),
-        ).rejects.toThrow(BadRequestException);
-        expect(h.withCoach).not.toHaveBeenCalled();
-      },
-    );
+    it.each([
+      '',
+      'DONE',
+      'Confirmed',
+      'deleted',
+      'pending ',
+      'toString',
+      '__proto__',
+    ])('rejects the status %j before opening a transaction', async (status) => {
+      const h = makeHarness();
+      await expect(
+        h.service.update(OWNER, 'session-1', { status: status as never }),
+      ).rejects.toThrow(BadRequestException);
+      expect(h.withCoach).not.toHaveBeenCalled();
+    });
 
     it.each([null, 123, {}, ['done']])(
       'rejects the non-string status %j',
@@ -766,17 +908,22 @@ describe('SessionsService.update', () => {
       async (attendance) => {
         const h = makeHarness();
         await expect(
-          h.service.update(OWNER, 'session-1', { attendance: attendance as never }),
+          h.service.update(OWNER, 'session-1', {
+            attendance: attendance as never,
+          }),
         ).rejects.toThrow(BadRequestException);
         expect(h.withCoach).not.toHaveBeenCalled();
       },
     );
 
-    it.each(['arrived', 'no_show'] as const)('accepts the attendance %s', async (attendance) => {
-      const h = makeHarness();
-      await h.service.update(OWNER, 'session-1', { attendance });
-      expect(dataSentToUpdate(h).attendance).toBe(attendance);
-    });
+    it.each(['arrived', 'no_show'] as const)(
+      'accepts the attendance %s',
+      async (attendance) => {
+        const h = makeHarness();
+        await h.service.update(OWNER, 'session-1', { attendance });
+        expect(dataSentToUpdate(h).attendance).toBe(attendance);
+      },
+    );
 
     it('accepts null attendance to clear the mark', async () => {
       const h = makeHarness();
@@ -800,34 +947,38 @@ describe('SessionsService.update', () => {
         id: 'session-1',
         deletedAt: null,
       });
-      expect(h.sessionUpdate.mock.calls[0][0].where).toEqual({ id: 'session-1' });
+      expect(h.sessionUpdate.mock.calls[0][0].where).toEqual({
+        id: 'session-1',
+      });
     });
 
     it('throws 404 for an unknown session', async () => {
       const h = makeHarness();
-      await expect(h.service.update(OWNER, 'nope', { paid: true })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        h.service.update(OWNER, 'nope', { paid: true }),
+      ).rejects.toThrow(NotFoundException);
       expect(h.sessionUpdate).not.toHaveBeenCalled();
     });
 
     it('throws 404 for a soft-deleted session', async () => {
       const h = makeHarness({
-        sessions: [sessionRow({ deletedAt: new Date('2026-02-01T00:00:00.000Z') })],
+        sessions: [
+          sessionRow({ deletedAt: new Date('2026-02-01T00:00:00.000Z') }),
+        ],
       });
 
-      await expect(h.service.update(OWNER, 'session-1', { paid: true })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        h.service.update(OWNER, 'session-1', { paid: true }),
+      ).rejects.toThrow(NotFoundException);
       expect(h.sessionUpdate).not.toHaveBeenCalled();
     });
 
     it('throws 404 — never writes — when another coach owns the session', async () => {
       const h = makeHarness({ sessions: [sessionRow({ coachId: OTHER })] });
 
-      await expect(h.service.update(OWNER, 'session-1', { paid: true })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        h.service.update(OWNER, 'session-1', { paid: true }),
+      ).rejects.toThrow(NotFoundException);
       expect(h.sessionUpdate).not.toHaveBeenCalled();
     });
   });
@@ -862,7 +1013,9 @@ describe('SessionsService.update', () => {
 
     it('trims and bounds the cancel reason', async () => {
       const h = makeHarness();
-      await h.service.update(OWNER, 'session-1', { cancelReason: `  ${'א'.repeat(5_000)}  ` });
+      await h.service.update(OWNER, 'session-1', {
+        cancelReason: `  ${'א'.repeat(5_000)}  `,
+      });
 
       expect((dataSentToUpdate(h).cancelReason as string).length).toBe(500);
     });
@@ -891,7 +1044,10 @@ describe('SessionsService.update', () => {
       const h = makeHarness();
       await h.service.update(OWNER, 'session-1', { status: 'confirmed' });
 
-      expect(dataSentToUpdate(h)).toEqual({ status: 'confirmed', reminderAnswered: true });
+      expect(dataSentToUpdate(h)).toEqual({
+        status: 'confirmed',
+        reminderAnswered: true,
+      });
     });
 
     it('overrides an explicit reminderAnswered=false alongside confirmed', async () => {
@@ -914,7 +1070,11 @@ describe('SessionsService.update', () => {
 });
 
 describe('SessionsService.create extra weekday coverage', () => {
-  const valid = { clientId: 'client-1', typeId: 'private', startsAt: '2026-09-06T15:00:00Z' };
+  const valid = {
+    clientId: 'client-1',
+    typeId: 'private',
+    startsAt: '2026-09-06T15:00:00Z',
+  };
 
   it.each([
     ['2026-01-04T16:00:00Z', 0, 'Sunday'],
@@ -938,7 +1098,9 @@ describe('SessionsService.create extra weekday coverage', () => {
       repeatWeekly: true,
     });
 
-    const starts = h.sessionCreate.mock.calls.map((c) => c[0].data.startsAt as Date);
+    const starts = h.sessionCreate.mock.calls.map(
+      (c) => c[0].data.startsAt as Date,
+    );
     expect(starts).toHaveLength(12);
     expect(starts.map(israelWeekday)).toEqual(starts.map(() => 'Sun'));
     expect(starts[0].toISOString()).toBe('2026-12-27T16:00:00.000Z');
@@ -953,8 +1115,12 @@ describe('SessionsService.create extra weekday coverage', () => {
       repeatWeekly: true,
     });
 
-    const starts = h.sessionCreate.mock.calls.map((c) => c[0].data.startsAt as Date);
+    const starts = h.sessionCreate.mock.calls.map(
+      (c) => c[0].data.startsAt as Date,
+    );
     expect(starts.map(israelTime)).toEqual(starts.map(() => '18:00'));
-    expect(starts.some((d) => d.toISOString().startsWith('2028-02-27'))).toBe(true);
+    expect(starts.some((d) => d.toISOString().startsWith('2028-02-27'))).toBe(
+      true,
+    );
   });
 });

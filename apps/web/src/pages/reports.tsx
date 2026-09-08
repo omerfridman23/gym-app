@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, TrendingUp } from 'lucide-react'
+import { ArrowRight, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { InitialsAvatar } from '@/components/initials-avatar'
 import { useData, totalOutstanding } from '@/lib/data'
@@ -19,19 +19,25 @@ const RANGE_LABELS: Record<Range, string> = {
 export default function ReportsPage() {
   const { ds, today, config } = useData()
   const [range, setRange] = useState<Range>('month')
+  const [selectedMonth, setSelectedMonth] = useState(
+    () => new Date(today.getFullYear(), today.getMonth(), 1),
+  )
 
   const inRange = useMemo(() => {
     return (iso: string) => {
       const d = fromISODate(iso)
       if (range === 'all') return true
       if (range === 'month') {
-        return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()
+        return (
+          d.getMonth() === selectedMonth.getMonth() &&
+          d.getFullYear() === selectedMonth.getFullYear()
+        )
       }
       // week: within the last 7 days up to today
       const diff = (today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)
       return diff >= 0 && diff < 7
     }
-  }, [range, today])
+  }, [range, selectedMonth, today])
 
   const stats = useMemo(() => {
     const done = ds.sessions.filter((s) => s.status === 'done' && inRange(s.date))
@@ -79,13 +85,20 @@ export default function ReportsPage() {
   }, [ds, inRange])
 
   const outstanding = totalOutstanding(ds)
-  const monthLabel = MONTHS_HE[today.getMonth()]
+  const monthLabel = `${MONTHS_HE[selectedMonth.getMonth()]} ${selectedMonth.getFullYear()}`
+  const rangeLabel = range === 'month' ? monthLabel : RANGE_LABELS[range]
+
+  const moveMonth = (offset: number) => {
+    setSelectedMonth(
+      (current) => new Date(current.getFullYear(), current.getMonth() + offset, 1),
+    )
+  }
 
   return (
     <>
       <AppHeader
         title="דוחות"
-        subtitle={range === 'month' ? monthLabel : RANGE_LABELS[range]}
+        subtitle={rangeLabel}
         action={
           <Link
             href="/debts"
@@ -115,13 +128,37 @@ export default function ReportsPage() {
               </button>
             ))}
           </div>
+
+          {range === 'month' ? (
+            <div className="mt-3 flex items-center justify-between rounded-2xl bg-surface px-2 py-2 shadow-sm ring-1 ring-line/60">
+              <button
+                type="button"
+                onClick={() => moveMonth(-1)}
+                aria-label="חודש קודם"
+                className="flex size-10 items-center justify-center rounded-xl text-ink transition hover:bg-surface-2 active:scale-95"
+              >
+                <ChevronRight className="size-5" />
+              </button>
+              <p className="text-sm font-extrabold text-ink" aria-live="polite">
+                {monthLabel}
+              </p>
+              <button
+                type="button"
+                onClick={() => moveMonth(1)}
+                aria-label="חודש הבא"
+                className="flex size-10 items-center justify-center rounded-xl text-ink transition hover:bg-surface-2 active:scale-95"
+              >
+                <ChevronLeft className="size-5" />
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {/* Revenue hero */}
         <section className="mx-5 mt-4 rounded-3xl bg-court-gradient p-5 text-white shadow-md">
           <div className="flex items-center gap-2 text-white/85">
             <TrendingUp className="size-4" />
-            <p className="text-sm font-semibold">הכנסות {RANGE_LABELS[range]}</p>
+            <p className="text-sm font-semibold">הכנסות {rangeLabel}</p>
           </div>
           <p className="ltr-nums mt-1 text-[42px] font-extrabold leading-none tracking-tight">
             {formatShekel(stats.revenue)}
@@ -166,7 +203,7 @@ export default function ReportsPage() {
         {/* Top clients */}
         <section className="mt-6">
           <h2 className="px-5 pb-2 text-sm font-bold text-muted">
-            {config.terms.clients} מובילים {RANGE_LABELS[range]}
+            {config.terms.clients} מובילים {rangeLabel}
           </h2>
           {stats.topClients.length === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-muted">אין נתונים בטווח הזה</p>

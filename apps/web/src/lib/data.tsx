@@ -42,6 +42,10 @@ const EMPTY_SETTINGS: CoachSettings = {
   reminderHoursBefore: 24,
   cancellationPolicy: '',
   templates: DEFAULT_TEMPLATES,
+  bookingSlug: null,
+  bookingEnabled: false,
+  bookingStartHour: 8,
+  bookingEndHour: 21,
 }
 
 const EMPTY_DATASET: Dataset = {
@@ -125,6 +129,10 @@ function toSettings(profile: CoachProfile): CoachSettings {
       reminder: profile.templates.reminder || DEFAULT_TEMPLATES.reminder,
       debt: profile.templates.debt || DEFAULT_TEMPLATES.debt,
     },
+    bookingSlug: profile.bookingSlug,
+    bookingEnabled: profile.bookingEnabled,
+    bookingStartHour: profile.bookingStartHour,
+    bookingEndHour: profile.bookingEndHour,
   }
 }
 

@@ -5,7 +5,8 @@ export const SETTING_SMS_DRIVER = 'sms.driver';
 export const SETTING_TWILIO_ACCOUNT_SID = 'twilio.account_sid';
 export const SETTING_TWILIO_API_KEY = 'twilio.api_key';
 export const SETTING_TWILIO_API_SECRET = 'twilio.api_secret';
-export const SETTING_TWILIO_FROM_NUMBER = 'twilio.from_number';
+export const SETTING_TWILIO_VERIFY_SERVICE_SID = 'twilio.verify_service_sid';
+export const SETTING_TWILIO_WHATSAPP_FROM = 'twilio.whatsapp_from';
 
 @Injectable()
 export class SettingsService {
@@ -17,7 +18,9 @@ export class SettingsService {
   }
 
   async getMany(keys: string[]): Promise<Record<string, string>> {
-    const rows = await this.db.setting.findMany({ where: { key: { in: keys } } });
+    const rows = await this.db.setting.findMany({
+      where: { key: { in: keys } },
+    });
     return Object.fromEntries(rows.map((row) => [row.key, row.value]));
   }
 

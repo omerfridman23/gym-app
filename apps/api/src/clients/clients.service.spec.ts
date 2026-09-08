@@ -41,12 +41,23 @@ function makeHarness(rows: Row[] = [clientRow()]) {
         (where?.deletedAt !== null || row.deletedAt === null),
     );
 
-  const findMany = vi.fn(async ({ where }: { where?: Where }) => visible(where));
-  const findFirst = vi.fn(async ({ where }: { where?: Where }) => visible(where)[0] ?? null);
-  const create = vi.fn(async ({ data }: { data: Record<string, unknown> }) => clientRow(data));
+  const findMany = vi.fn(async ({ where }: { where?: Where }) =>
+    visible(where),
+  );
+  const findFirst = vi.fn(
+    async ({ where }: { where?: Where }) => visible(where)[0] ?? null,
+  );
+  const create = vi.fn(async ({ data }: { data: Record<string, unknown> }) =>
+    clientRow(data),
+  );
   const update = vi.fn(
-    async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) =>
-      clientRow({ ...data, id: where.id }),
+    async ({
+      where,
+      data,
+    }: {
+      where: { id: string };
+      data: Record<string, unknown>;
+    }) => clientRow({ ...data, id: where.id }),
   );
 
   const tx = { client: { findMany, findFirst, create, update } };
@@ -81,7 +92,10 @@ describe('ClientsService.list', () => {
   it('leaves soft-deleted clients out of the result', async () => {
     const h = makeHarness([
       clientRow({ id: 'live' }),
-      clientRow({ id: 'gone', deletedAt: new Date('2026-02-01T00:00:00.000Z') }),
+      clientRow({
+        id: 'gone',
+        deletedAt: new Date('2026-02-01T00:00:00.000Z'),
+      }),
     ]);
 
     const result = await h.service.list(OWNER);
@@ -92,19 +106,30 @@ describe('ClientsService.list', () => {
   it('sorts by name so the list is stable for RTL display', async () => {
     const h = makeHarness();
     await h.service.list(OWNER);
-    expect(h.findMany.mock.calls[0][0]).toMatchObject({ orderBy: { name: 'asc' } });
+    expect(h.findMany.mock.calls[0][0]).toMatchObject({
+      orderBy: { name: 'asc' },
+    });
   });
 
   it('never returns another coach clients', async () => {
-    const h = makeHarness([clientRow({ id: 'mine' }), clientRow({ id: 'theirs', coachId: OTHER })]);
+    const h = makeHarness([
+      clientRow({ id: 'mine' }),
+      clientRow({ id: 'theirs', coachId: OTHER }),
+    ]);
 
-    await expect(h.service.list(OWNER)).resolves.toMatchObject([{ id: 'mine' }]);
-    await expect(h.service.list(OTHER)).resolves.toMatchObject([{ id: 'theirs' }]);
+    await expect(h.service.list(OWNER)).resolves.toMatchObject([
+      { id: 'mine' },
+    ]);
+    await expect(h.service.list(OTHER)).resolves.toMatchObject([
+      { id: 'theirs' },
+    ]);
   });
 });
 
 describe('ClientsService.create', () => {
-  function dataSentToCreate(h: ReturnType<typeof makeHarness>): Record<string, unknown> {
+  function dataSentToCreate(
+    h: ReturnType<typeof makeHarness>,
+  ): Record<string, unknown> {
     return h.create.mock.calls[0][0].data;
   }
 
@@ -119,13 +144,17 @@ describe('ClientsService.create', () => {
       [{}, 'empty body'],
     ])('rejects %j (%s) before opening a transaction', async (input) => {
       const h = makeHarness();
-      await expect(h.service.create(OWNER, input as never)).rejects.toThrow(BadRequestException);
+      await expect(h.service.create(OWNER, input as never)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(h.withCoach).not.toHaveBeenCalled();
     });
 
     it('rejects a null body without a TypeError', async () => {
       const h = makeHarness();
-      await expect(h.service.create(OWNER, null as never)).rejects.toThrow(BadRequestException);
+      await expect(h.service.create(OWNER, null as never)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -151,14 +180,23 @@ describe('ClientsService.create', () => {
   describe('normalization', () => {
     it('trims the name and the phone', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { name: '  דני לוי  ', phone: '  0501234567  ' });
+      await h.service.create(OWNER, {
+        name: '  דני לוי  ',
+        phone: '  0501234567  ',
+      });
 
-      expect(dataSentToCreate(h)).toMatchObject({ name: 'דני לוי', phone: '0501234567' });
+      expect(dataSentToCreate(h)).toMatchObject({
+        name: 'דני לוי',
+        phone: '0501234567',
+      });
     });
 
     it('bounds the name length', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { name: 'א'.repeat(10_000), phone: '0501234567' });
+      await h.service.create(OWNER, {
+        name: 'א'.repeat(10_000),
+        phone: '0501234567',
+      });
 
       expect((dataSentToCreate(h).name as string).length).toBe(200);
     });
@@ -179,14 +217,22 @@ describe('ClientsService.create', () => {
 
     it('floors a negative price to zero', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { name: 'דני', phone: '0501234567', priceAgorot: -1 });
+      await h.service.create(OWNER, {
+        name: 'דני',
+        phone: '0501234567',
+        priceAgorot: -1,
+      });
 
       expect(dataSentToCreate(h).priceAgorot).toBe(0);
     });
 
     it('truncates a fractional price to whole agorot', async () => {
       const h = makeHarness();
-      await h.service.create(OWNER, { name: 'דני', phone: '0501234567', priceAgorot: 18_000.99 });
+      await h.service.create(OWNER, {
+        name: 'דני',
+        phone: '0501234567',
+        priceAgorot: 18_000.99,
+      });
 
       expect(dataSentToCreate(h).priceAgorot).toBe(18_000);
     });
@@ -208,16 +254,19 @@ describe('ClientsService.create', () => {
       [[1, 2], 'an array'],
       [Number.NaN, 'NaN itself'],
       [undefined, 'undefined'],
-    ])('stores 0 rather than NaN when the price is %j (%s)', async (priceAgorot) => {
-      const h = makeHarness();
-      await h.service.create(OWNER, {
-        name: 'דני',
-        phone: '0501234567',
-        priceAgorot: priceAgorot as never,
-      });
+    ])(
+      'stores 0 rather than NaN when the price is %j (%s)',
+      async (priceAgorot) => {
+        const h = makeHarness();
+        await h.service.create(OWNER, {
+          name: 'דני',
+          phone: '0501234567',
+          priceAgorot: priceAgorot as never,
+        });
 
-      expect(dataSentToCreate(h).priceAgorot).toBe(0);
-    });
+        expect(dataSentToCreate(h).priceAgorot).toBe(0);
+      },
+    );
 
     it('coerces Infinity to the int4 ceiling instead of failing at the driver', async () => {
       const h = makeHarness();
@@ -234,7 +283,9 @@ describe('ClientsService.create', () => {
   // `fields` is schemaless JSONB and CreateClientInput is a bare interface with
   // no ValidationPipe behind it, so anything JSON-shaped can arrive here.
   describe('schemaless fields sanitization', () => {
-    function fieldsSentToCreate(h: ReturnType<typeof makeHarness>): Record<string, string> {
+    function fieldsSentToCreate(
+      h: ReturnType<typeof makeHarness>,
+    ): Record<string, string> {
       return dataSentToCreate(h).fields as Record<string, string>;
     }
 
@@ -266,7 +317,11 @@ describe('ClientsService.create', () => {
         Array.from({ length: 200 }, (_, i) => [`k${i}`, String(i)]),
       );
 
-      await h.service.create(OWNER, { name: 'דני', phone: '0501234567', fields });
+      await h.service.create(OWNER, {
+        name: 'דני',
+        phone: '0501234567',
+        fields,
+      });
 
       expect(Object.keys(fieldsSentToCreate(h)).length).toBe(20);
     });
@@ -290,16 +345,19 @@ describe('ClientsService.create', () => {
       ['null', null],
       ['undefined', undefined],
       ['a boolean', true],
-    ])('falls back to an empty object when fields is %s', async (_label, fields) => {
-      const h = makeHarness();
-      await h.service.create(OWNER, {
-        name: 'דני',
-        phone: '0501234567',
-        fields: fields as never,
-      });
+    ])(
+      'falls back to an empty object when fields is %s',
+      async (_label, fields) => {
+        const h = makeHarness();
+        await h.service.create(OWNER, {
+          name: 'דני',
+          phone: '0501234567',
+          fields: fields as never,
+        });
 
-      expect(fieldsSentToCreate(h)).toEqual({});
-    });
+        expect(fieldsSentToCreate(h)).toEqual({});
+      },
+    );
 
     it('flattens nested values to strings rather than storing raw JSON', async () => {
       const h = makeHarness();
@@ -310,7 +368,9 @@ describe('ClientsService.create', () => {
       });
 
       const stored = fieldsSentToCreate(h);
-      expect(Object.values(stored).every((v) => typeof v === 'string')).toBe(true);
+      expect(Object.values(stored).every((v) => typeof v === 'string')).toBe(
+        true,
+      );
       expect(stored.nothing).toBe('');
     });
   });
@@ -348,6 +408,7 @@ describe('ClientsService.create', () => {
         'coachId',
         'fields',
         'name',
+        'normalizedPhone',
         'phone',
         'priceAgorot',
       ]);
@@ -356,7 +417,9 @@ describe('ClientsService.create', () => {
 });
 
 describe('ClientsService.update', () => {
-  function dataSentToUpdate(h: ReturnType<typeof makeHarness>): Record<string, unknown> {
+  function dataSentToUpdate(
+    h: ReturnType<typeof makeHarness>,
+  ): Record<string, unknown> {
     return h.update.mock.calls[0][0].data;
   }
 
@@ -371,33 +434,38 @@ describe('ClientsService.update', () => {
       const h = makeHarness();
       await h.service.update(OWNER, 'client-1', { name: 'דני' });
 
-      expect(h.findFirst.mock.calls[0][0].where).toEqual({ id: 'client-1', deletedAt: null });
+      expect(h.findFirst.mock.calls[0][0].where).toEqual({
+        id: 'client-1',
+        deletedAt: null,
+      });
       expect(h.update.mock.calls[0][0].where).toEqual({ id: 'client-1' });
     });
 
     it('throws 404 for an unknown client', async () => {
       const h = makeHarness();
-      await expect(h.service.update(OWNER, 'nope', { name: 'x' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        h.service.update(OWNER, 'nope', { name: 'x' }),
+      ).rejects.toThrow(NotFoundException);
       expect(h.update).not.toHaveBeenCalled();
     });
 
     it('throws 404 for a soft-deleted client', async () => {
-      const h = makeHarness([clientRow({ deletedAt: new Date('2026-02-01T00:00:00.000Z') })]);
+      const h = makeHarness([
+        clientRow({ deletedAt: new Date('2026-02-01T00:00:00.000Z') }),
+      ]);
 
-      await expect(h.service.update(OWNER, 'client-1', { name: 'x' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        h.service.update(OWNER, 'client-1', { name: 'x' }),
+      ).rejects.toThrow(NotFoundException);
       expect(h.update).not.toHaveBeenCalled();
     });
 
     it('throws 404 — never touches the row — when another coach owns the client', async () => {
       const h = makeHarness([clientRow({ coachId: OTHER })]);
 
-      await expect(h.service.update(OWNER, 'client-1', { name: 'פרוץ' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        h.service.update(OWNER, 'client-1', { name: 'פרוץ' }),
+      ).rejects.toThrow(NotFoundException);
       expect(h.update).not.toHaveBeenCalled();
     });
 
@@ -441,9 +509,16 @@ describe('ClientsService.update', () => {
   describe('normalization', () => {
     it('trims the name and the phone', async () => {
       const h = makeHarness();
-      await h.service.update(OWNER, 'client-1', { name: '  דני  ', phone: '  0501234567  ' });
+      await h.service.update(OWNER, 'client-1', {
+        name: '  דני  ',
+        phone: '  0501234567  ',
+      });
 
-      expect(dataSentToUpdate(h)).toEqual({ name: 'דני', phone: '0501234567' });
+      expect(dataSentToUpdate(h)).toEqual({
+        name: 'דני',
+        phone: '0501234567',
+        normalizedPhone: '+972501234567',
+      });
     });
 
     it('bounds the name and phone length', async () => {
@@ -465,13 +540,17 @@ describe('ClientsService.update', () => {
 
     it('clamps a price above the postgres int4 ceiling', async () => {
       const h = makeHarness();
-      await h.service.update(OWNER, 'client-1', { priceAgorot: Number.MAX_SAFE_INTEGER });
+      await h.service.update(OWNER, 'client-1', {
+        priceAgorot: Number.MAX_SAFE_INTEGER,
+      });
       expect(dataSentToUpdate(h).priceAgorot).toBe(PG_INT4_MAX);
     });
 
     it('does not persist NaN for a non-numeric price', async () => {
       const h = makeHarness();
-      await h.service.update(OWNER, 'client-1', { priceAgorot: 'abc' as never });
+      await h.service.update(OWNER, 'client-1', {
+        priceAgorot: 'abc' as never,
+      });
       expect(dataSentToUpdate(h).priceAgorot).toBe(0);
     });
 
@@ -520,12 +599,16 @@ describe('ClientsService.softDelete', () => {
 
   it('resolves without a value', async () => {
     const h = makeHarness();
-    await expect(h.service.softDelete(OWNER, 'client-1')).resolves.toBeUndefined();
+    await expect(
+      h.service.softDelete(OWNER, 'client-1'),
+    ).resolves.toBeUndefined();
   });
 
   it('throws 404 for an unknown client', async () => {
     const h = makeHarness();
-    await expect(h.service.softDelete(OWNER, 'nope')).rejects.toThrow(NotFoundException);
+    await expect(h.service.softDelete(OWNER, 'nope')).rejects.toThrow(
+      NotFoundException,
+    );
     expect(h.update).not.toHaveBeenCalled();
   });
 
@@ -533,14 +616,18 @@ describe('ClientsService.softDelete', () => {
     const firstDeletion = new Date('2026-02-01T00:00:00.000Z');
     const h = makeHarness([clientRow({ deletedAt: firstDeletion })]);
 
-    await expect(h.service.softDelete(OWNER, 'client-1')).rejects.toThrow(NotFoundException);
+    await expect(h.service.softDelete(OWNER, 'client-1')).rejects.toThrow(
+      NotFoundException,
+    );
     expect(h.update).not.toHaveBeenCalled();
   });
 
   it('throws 404 — never deletes — when another coach owns the client', async () => {
     const h = makeHarness([clientRow({ coachId: OTHER })]);
 
-    await expect(h.service.softDelete(OWNER, 'client-1')).rejects.toThrow(NotFoundException);
+    await expect(h.service.softDelete(OWNER, 'client-1')).rejects.toThrow(
+      NotFoundException,
+    );
     expect(h.update).not.toHaveBeenCalled();
   });
 });

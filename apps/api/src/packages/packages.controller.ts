@@ -13,7 +13,9 @@ export class PackagesController {
   constructor(private readonly packagesService: PackagesService) {}
 
   @Get()
-  async list(@CurrentCoach() coachId: string): Promise<{ packages: PackageWithRemaining[] }> {
+  async list(
+    @CurrentCoach() coachId: string,
+  ): Promise<{ packages: PackageWithRemaining[] }> {
     return { packages: await this.packagesService.list(coachId) };
   }
 
@@ -23,7 +25,10 @@ export class PackagesController {
     @Body() body: CreatePackageInput,
   ): Promise<{ package: PackageWithRemaining }> {
     return {
-      package: await this.packagesService.create(coachId, body ?? ({} as CreatePackageInput)),
+      package: await this.packagesService.create(
+        coachId,
+        body ?? ({} as CreatePackageInput),
+      ),
     };
   }
 }

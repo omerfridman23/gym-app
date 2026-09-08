@@ -53,27 +53,25 @@ describe('CoachesController', () => {
     });
   });
 
-  it.each(['padel', 'fitness'] as const)('accepts the supported vertical %s', async (vertical) => {
-    const h = makeController();
-    await h.controller.updateMe('coach-1', { vertical });
-    expect(h.updateMe).toHaveBeenCalledWith('coach-1', { vertical });
-  });
+  it.each(['padel', 'fitness'] as const)(
+    'accepts the supported vertical %s',
+    async (vertical) => {
+      const h = makeController();
+      await h.controller.updateMe('coach-1', { vertical });
+      expect(h.updateMe).toHaveBeenCalledWith('coach-1', { vertical });
+    },
+  );
 
-  it.each([
-    '',
-    'PADel',
-    'running',
-    'padel ',
-    null,
-    1,
-    {},
-  ])('rejects hostile vertical %j before writing', async (vertical) => {
-    const h = makeController();
-    await expect(
-      h.controller.updateMe('coach-1', { vertical } as never),
-    ).rejects.toThrow(BadRequestException);
-    expect(h.updateMe).not.toHaveBeenCalled();
-  });
+  it.each(['', 'PADel', 'running', 'padel ', null, 1, {}])(
+    'rejects hostile vertical %j before writing',
+    async (vertical) => {
+      const h = makeController();
+      await expect(
+        h.controller.updateMe('coach-1', { vertical } as never),
+      ).rejects.toThrow(BadRequestException);
+      expect(h.updateMe).not.toHaveBeenCalled();
+    },
+  );
 
   it('allows an update that omits vertical', async () => {
     const h = makeController();
@@ -91,7 +89,9 @@ describe('CoachesController', () => {
     const h = makeController();
     const result = await h.controller.updateMe('coach-1', { name: 'עודכן' });
 
-    expect(h.toSession).toHaveBeenCalledWith(expect.objectContaining({ name: 'עודכן' }));
+    expect(h.toSession).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'עודכן' }),
+    );
     expect(result.coach).toMatchObject({ name: 'עודכן', onboarded: true });
     expect(result.profile).toMatchObject({
       name: 'עודכן',
@@ -103,9 +103,9 @@ describe('CoachesController', () => {
   it('propagates NotFound without constructing a response', async () => {
     const h = makeController();
     h.updateMe.mockRejectedValue(new NotFoundException());
-    await expect(h.controller.updateMe('coach-1', { name: 'x' })).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(
+      h.controller.updateMe('coach-1', { name: 'x' }),
+    ).rejects.toThrow(NotFoundException);
     expect(h.toSession).not.toHaveBeenCalled();
   });
 });

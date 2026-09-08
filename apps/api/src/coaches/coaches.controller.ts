@@ -1,4 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard.js';
 import type { CoachSession } from '../auth/auth.service.js';
 import { AuthService } from '../auth/auth.service.js';
@@ -19,7 +26,9 @@ export class CoachesController {
   ) {}
 
   @Get('me')
-  async getMe(@CurrentCoach() coachId: string): Promise<{ coach: CoachProfile }> {
+  async getMe(
+    @CurrentCoach() coachId: string,
+  ): Promise<{ coach: CoachProfile }> {
     return { coach: toProfile(await this.coachesService.getMe(coachId)) };
   }
 
@@ -28,10 +37,16 @@ export class CoachesController {
     @CurrentCoach() coachId: string,
     @Body() body: UpdateCoachInput,
   ): Promise<{ coach: CoachSession; profile: CoachProfile }> {
-    if (body?.vertical !== undefined && !['padel', 'fitness'].includes(body.vertical)) {
+    if (
+      body?.vertical !== undefined &&
+      !['padel', 'fitness'].includes(body.vertical)
+    ) {
       throw new BadRequestException('vertical must be padel or fitness');
     }
     const coach = await this.coachesService.updateMe(coachId, body ?? {});
-    return { coach: this.authService.toSession(coach), profile: toProfile(coach) };
+    return {
+      coach: this.authService.toSession(coach),
+      profile: toProfile(coach),
+    };
   }
 }

@@ -20,8 +20,9 @@ import {
 } from './reminders.template.js';
 
 /**
- * Sends session reminders by SMS, `reminderHoursBefore` hours before each
- * session, with the client's own confirm link.
+ * Sends session reminders on WhatsApp, `reminderHoursBefore` hours before each
+ * session. The text is that session's coach (name + their template); the
+ * sender is the app WhatsApp number, not the coach's personal phone.
  *
  * Runs inside the API process on a timer — no external scheduler needed. It is
  * the only writer that crosses coach boundaries, so it uses the privileged
@@ -77,7 +78,11 @@ function readInt(
 }
 
 function readBool(config: ConfigService, key: string): boolean {
-  return ['1', 'true', 'yes', 'on'].includes(String(config.get(key) ?? '').trim().toLowerCase());
+  return ['1', 'true', 'yes', 'on'].includes(
+    String(config.get(key) ?? '')
+      .trim()
+      .toLowerCase(),
+  );
 }
 
 function reason(error: unknown): string {
@@ -85,7 +90,9 @@ function reason(error: unknown): string {
 }
 
 @Injectable()
-export class RemindersWorker implements OnApplicationBootstrap, OnApplicationShutdown {
+export class RemindersWorker
+  implements OnApplicationBootstrap, OnApplicationShutdown
+{
   private readonly logger = new Logger('RemindersWorker');
   private timer?: ReturnType<typeof setInterval>;
   private running = false;
@@ -105,12 +112,48 @@ export class RemindersWorker implements OnApplicationBootstrap, OnApplicationShu
     @Inject(SMS_PROVIDER) private readonly sms: SmsProvider,
   ) {
     this.enabled = readBool(config, 'REMINDERS_ENABLED');
-    this.pollSeconds = readInt(config, 'REMINDERS_POLL_SECONDS', DEFAULTS.pollSeconds, 30, 3600);
-    this.maxPerRun = readInt(config, 'REMINDERS_MAX_PER_RUN', DEFAULTS.maxPerRun, 1, 500);
-    this.maxAttempts = readInt(config, 'REMINDERS_MAX_ATTEMPTS', DEFAULTS.maxAttempts, 1, 10);
-    this.retryMinutes = readInt(config, 'REMINDERS_RETRY_MINUTES', DEFAULTS.retryMinutes, 1, 1440);
-    this.quietStartHour = readInt(config, 'REMINDERS_QUIET_START_HOUR', DEFAULTS.quietStartHour, 0, 23);
-    this.quietEndHour = readInt(config, 'REMINDERS_QUIET_END_HOUR', DEFAULTS.quietEndHour, 0, 23);
+    this.pollSeconds = readInt(
+      config,
+      'REMINDERS_POLL_SECONDS',
+      DEFAULTS.pollSeconds,
+      30,
+      3600,
+    );
+    this.maxPerRun = readInt(
+      config,
+      'REMINDERS_MAX_PER_RUN',
+      DEFAULTS.maxPerRun,
+      1,
+      500,
+    );
+    this.maxAttempts = readInt(
+      config,
+      'REMINDERS_MAX_ATTEMPTS',
+      DEFAULTS.maxAttempts,
+      1,
+      10,
+    );
+    this.retryMinutes = readInt(
+      config,
+      'REMINDERS_RETRY_MINUTES',
+      DEFAULTS.retryMinutes,
+      1,
+      1440,
+    );
+    this.quietStartHour = readInt(
+      config,
+      'REMINDERS_QUIET_START_HOUR',
+      DEFAULTS.quietStartHour,
+      0,
+      23,
+    );
+    this.quietEndHour = readInt(
+      config,
+      'REMINDERS_QUIET_END_HOUR',
+      DEFAULTS.quietEndHour,
+      0,
+      23,
+    );
     this.webOrigin = resolveWebOrigin(
       config.get<string>('PUBLIC_WEB_URL'),
       config.get<string>('WEB_ORIGIN'),
@@ -119,17 +162,24 @@ export class RemindersWorker implements OnApplicationBootstrap, OnApplicationShu
 
   onApplicationBootstrap(): void {
     if (!this.enabled) {
-      this.logger.log('Automatic SMS reminders are off (set REMINDERS_ENABLED=true to enable)');
+      this.logger.log(
+        'Automatic WhatsApp reminders are off (set REMINDERS_ENABLED=true to enable)',
+      );
       return;
     }
 
     const driver = String(this.config.get('SMS_DRIVER') ?? '').toLowerCase();
-    if (driver === 'dev' || (driver === '' && this.config.get('NODE_ENV') !== 'production')) {
-      this.logger.warn('Reminders are on with the dev SMS driver — messages are logged, not sent');
+    if (
+      driver === 'dev' ||
+      (driver === '' && this.config.get('NODE_ENV') !== 'production')
+    ) {
+      this.logger.warn(
+        'Reminders are on with the dev driver — messages are logged, not sent',
+      );
     }
 
     this.logger.log(
-      `Automatic SMS reminders on: every ${this.pollSeconds}s, up to ${this.maxPerRun} per run, ` +
+      `Automatic WhatsApp reminders on: every ${this.pollSeconds}s, up to ${this.maxPerRun} per run, ` +
         `quiet ${this.quietStartHour}:00–${this.quietEndHour}:00 Israel time, links at ${this.webOrigin}`,
     );
 
@@ -146,7 +196,9 @@ export class RemindersWorker implements OnApplicationBootstrap, OnApplicationShu
   /** One scheduled pass. Never throws — a bad run must not kill the timer. */
   async tick(): Promise<RemindersRunSummary | undefined> {
     if (this.running) {
-      this.logger.warn('Previous reminder run is still going; skipping this tick');
+      this.logger.warn(
+        'Previous reminder run is still going; skipping this tick',
+      );
       return undefined;
     }
 
@@ -163,7 +215,8 @@ export class RemindersWorker implements OnApplicationBootstrap, OnApplicationShu
 
   /** Claims every due reminder and sends it. Exposed for tests and one-offs. */
   async runOnce(now: Date = new Date()): Promise<RemindersRunSummary> {
-    if (!this.enabled) return { claimed: 0, sent: 0, failed: 0, skipped: 'disabled' };
+    if (!this.enabled)
+      return { claimed: 0, sent: 0, failed: 0, skipped: 'disabled' };
 
     if (inQuietHours(now, this.quietStartHour, this.quietEndHour)) {
       return { claimed: 0, sent: 0, failed: 0, skipped: 'quiet-hours' };
@@ -194,7 +247,9 @@ export class RemindersWorker implements OnApplicationBootstrap, OnApplicationShu
         continue;
       }
 
-      const template = toProfile(session.coach).templates.reminder || DEFAULT_REMINDER_TEMPLATE;
+      const template =
+        toProfile(session.coach).templates.reminder ||
+        DEFAULT_REMINDER_TEMPLATE;
       const message = fillTemplate(
         template,
         reminderVars({
@@ -218,7 +273,9 @@ export class RemindersWorker implements OnApplicationBootstrap, OnApplicationShu
       } catch (error) {
         failed += 1;
         const retry =
-          attempt >= this.maxAttempts ? 'giving up' : `retrying in ~${this.retryMinutes}m`;
+          attempt >= this.maxAttempts
+            ? 'giving up'
+            : `retrying in ~${this.retryMinutes}m`;
         this.logger.error(
           `Session ${session.id}: reminder attempt ${attempt}/${this.maxAttempts} failed ` +
             `(${reason(error)}) — ${retry}`,
@@ -226,7 +283,9 @@ export class RemindersWorker implements OnApplicationBootstrap, OnApplicationShu
       }
     }
 
-    this.logger.log(`Reminders: claimed ${claimed.length}, sent ${sent}, failed ${failed}`);
+    this.logger.log(
+      `Reminders: claimed ${claimed.length}, sent ${sent}, failed ${failed}`,
+    );
     return { claimed: claimed.length, sent, failed };
   }
 

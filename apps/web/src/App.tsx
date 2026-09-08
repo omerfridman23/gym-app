@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
 import { AuthProvider, useAuth } from '@/lib/auth-context'
 import { DataProvider, useData } from '@/lib/data'
+import { ThemeProvider } from '@/lib/theme-context'
 import { VerticalProvider } from '@/lib/vertical-context'
 import { AppLayout } from '@/layouts/app-layout'
 import TodayPage from '@/pages/today'
@@ -14,6 +15,7 @@ import SettingsPage from '@/pages/settings'
 import OnboardingPage from '@/pages/onboarding'
 import ConfirmPage from '@/pages/confirm'
 import PayPage from '@/pages/pay'
+import BookPage from '@/pages/book'
 
 function Splash() {
   return (
@@ -48,14 +50,16 @@ function RedirectIfAuthed({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <VerticalProvider>
-      <AuthProvider>
-        <DataProvider>
+    <ThemeProvider>
+      <VerticalProvider>
+        <AuthProvider>
+          <DataProvider>
           <BrowserRouter>
           <Routes>
             {/* Public pages (client-facing, token links) */}
             <Route path="/confirm/:id" element={<ConfirmPage />} />
             <Route path="/pay/:id" element={<PayPage />} />
+            <Route path="/book/:slug" element={<BookPage />} />
 
             <Route
               path="/login"
@@ -92,7 +96,8 @@ export default function App() {
           </Routes>
           </BrowserRouter>
         </DataProvider>
-      </AuthProvider>
-    </VerticalProvider>
+        </AuthProvider>
+      </VerticalProvider>
+    </ThemeProvider>
   )
 }
