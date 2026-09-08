@@ -8,28 +8,34 @@ export function ThemeSwitcher() {
   const { theme, setTheme } = ctx
 
   return (
-    <div className="flex overflow-hidden rounded-sm border border-line" role="group" aria-label="ערכת עיצוב">
+    <div
+      className="inline-flex w-fit shrink-0 gap-1 rounded-full border border-line bg-surface p-1 shadow-sm"
+      role="group"
+      aria-label="ערכת עיצוב"
+    >
       <button
         type="button"
         onClick={() => setTheme('ocean')}
         aria-pressed={theme === 'ocean'}
-        className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors ${
-          theme === 'ocean' ? 'bg-ink text-paper' : 'bg-surface text-muted'
+        aria-label="ערכת צבעים בהירה"
+        title="ערכת צבעים בהירה"
+        className={`flex size-8 items-center justify-center rounded-full transition-colors ${
+          theme === 'ocean' ? 'bg-ink text-paper shadow-sm' : 'text-muted hover:bg-surface-2'
         }`}
       >
-        <Waves className="size-3.5" />
-        אושן
+        <Waves className="size-4" aria-hidden="true" />
       </button>
       <button
         type="button"
         onClick={() => setTheme('ink')}
         aria-pressed={theme === 'ink'}
-        className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors ${
-          theme === 'ink' ? 'bg-ink text-paper' : 'bg-surface text-muted'
+        aria-label="ערכת צבעים כהה"
+        title="ערכת צבעים כהה"
+        className={`flex size-8 items-center justify-center rounded-full transition-colors ${
+          theme === 'ink' ? 'bg-ink text-paper shadow-sm' : 'text-muted hover:bg-surface-2'
         }`}
       >
-        <Moon className="size-3.5" />
-        כהה
+        <Moon className="size-4" aria-hidden="true" />
       </button>
     </div>
   )
