@@ -2,7 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-export const THEME_STORAGE_KEY = 'coach-theme'
+// v2 intentionally resets the old rollout preference so Ocean becomes the
+// default for every existing browser once, while future choices still persist.
+export const THEME_STORAGE_KEY = 'coach-theme-v2'
 export type ThemeId = 'ocean' | 'ink'
 
 type ThemeContextValue = {

@@ -19,7 +19,20 @@ describe('ThemeProvider', () => {
   afterEach(() => {
     cleanup()
     localStorage.removeItem(THEME_STORAGE_KEY)
+    localStorage.removeItem('coach-theme')
     document.documentElement.classList.remove('theme-ink', 'theme-ocean')
+  })
+
+  it('ignores the legacy preference and resets existing browsers to ocean', () => {
+    localStorage.setItem('coach-theme', 'ink')
+    render(
+      <ThemeProvider>
+        <Probe />
+      </ThemeProvider>,
+    )
+
+    expect(screen.getByTestId('theme').textContent).toBe('ocean')
+    expect(document.documentElement.classList.contains('theme-ocean')).toBe(true)
   })
 
   it('defaults to ocean and writes it on the document', () => {
