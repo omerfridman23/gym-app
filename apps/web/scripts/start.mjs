@@ -35,6 +35,12 @@ async function proxyApi(req, res) {
   }
   headers.delete('host')
   headers.delete('content-length')
+  // Let undici negotiate its own compression: it transparently decompresses
+  // the upstream body but keeps the original content-encoding/content-length
+  // headers. Forwarding the browser's accept-encoding therefore produced a
+  // decoded body labeled as gzip → ERR_CONTENT_DECODING_FAILED in the browser
+  // for any response large enough to be compressed (the "שמירה נכשלה" bug).
+  headers.delete('accept-encoding')
 
   const method = req.method ?? 'GET'
   const init = {
@@ -50,7 +56,14 @@ async function proxyApi(req, res) {
   const upstream = await fetch(new URL(req.url, apiUrl), init)
   res.statusCode = upstream.status
   for (const [name, value] of upstream.headers) {
-    if (name !== 'set-cookie' && !HOP_BY_HOP_HEADERS.has(name)) {
+    // content-encoding/content-length describe the *compressed* upstream body;
+    // fetch hands us the decoded stream, so forwarding them corrupts responses.
+    if (
+      name !== 'set-cookie' &&
+      name !== 'content-encoding' &&
+      name !== 'content-length' &&
+      !HOP_BY_HOP_HEADERS.has(name)
+    ) {
       res.setHeader(name, value)
     }
   }
