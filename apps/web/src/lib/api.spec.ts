@@ -39,6 +39,16 @@ describe('API request transport', () => {
     })
   })
 
+  it('uses same-origin relative requests when the runtime URL is an empty string', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(204, undefined))
+    vi.stubGlobal('fetch', fetchMock)
+    const { authApi } = await loadApi('')
+
+    await authApi.requestOtp('0501234567')
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/auth/otp/request')
+  })
+
   it('uses the runtime API URL and removes one trailing slash', async () => {
     const fetchMock = vi.fn().mockResolvedValue(response(200, { payments: [] }))
     vi.stubGlobal('fetch', fetchMock)

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Design options — Today page</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        font-family: Assistant, system-ui, sans-serif;
+        background: #f3f4f2;
+        color: #151916;
+      }
+      header {
+        padding: 28px 24px 8px;
+        max-width: 1500px;
+        margin: 0 auto;
+      }
+      h1 { margin: 0 0 8px; font-size: 28px; }
+      header p { margin: 0; color: #5b6560; }
+      h2 {
+        max-width: 1500px;
+        margin: 28px auto 0;
+        padding: 0 24px;
+        font-size: 18px;
+        color: #39423d;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        padding: 16px 24px;
+        max-width: 1500px;
+        margin: 0 auto;
+      }
+      .grid.last { margin-bottom: 48px; }
+      figure {
+        margin: 0;
+        background: #fff;
+        border-radius: 20px;
+        padding: 14px;
+        box-shadow: 0 10px 28px -18px rgba(11, 32, 27, 0.35);
+      }
+      img { width: 100%; height: auto; border-radius: 14px; display: block; }
+      figcaption { padding: 12px 6px 4px; font-weight: 700; }
+      .note { font-weight: 400; color: #5b6560; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>בחרי עיצוב</h1>
+      <p>אותו מסך «היום», הרבה פלטות. שלחי לי את המספר (או שילוב) שאהבת.</p>
+    </header>
+
+    <h2>בהיר</h2>
+    <div class="grid">
+      <figure><img src="1-porcelain.png" alt="1 Porcelain" /><figcaption>1 — Porcelain <span class="note">לבן נקי, ירוק</span></figcaption></figure>
+      <figure><img src="2-sage.png" alt="2 Sage" /><figcaption>2 — Sage <span class="note">ירוק רך</span></figcaption></figure>
+      <figure><img src="3-cream.png" alt="3 Cream" /><figcaption>3 — Cream <span class="note">שמנת חמה</span></figcaption></figure>
+      <figure><img src="4-mist.png" alt="4 Mist" /><figcaption>4 — Mist <span class="note">אפור-כחול + טורקיז</span></figcaption></figure>
+      <figure><img src="6-ocean.png" alt="6 Ocean" /><figcaption>6 — Ocean <span class="note">כחול ים</span></figcaption></figure>
+      <figure><img src="7-lavender.png" alt="7 Lavender" /><figcaption>7 — Lavender <span class="note">סגול לבנדר</span></figcaption></figure>
+      <figure><img src="8-rose.png" alt="8 Rose" /><figcaption>8 — Rose <span class="note">ורוד</span></figcaption></figure>
+      <figure><img src="9-sunset.png" alt="9 Sunset" /><figcaption>9 — Sunset <span class="note">כתום חמים</span></figcaption></figure>
+      <figure><img src="10-graphite-mint.png" alt="10 Graphite Mint" /><figcaption>10 — Graphite Mint <span class="note">אפור נקי + מנטה</span></figcaption></figure>
+    </div>
+
+    <h2>כהה (בהיר יותר מהמקורי)</h2>
+    <div class="grid last">
+      <figure><img src="5-soft-slate.png" alt="5 Soft Slate" /><figcaption>5 — Soft Slate <span class="note">אפור גרפיט</span></figcaption></figure>
+      <figure><img src="11-indigo-night.png" alt="11 Indigo Night" /><figcaption>11 — Indigo Night <span class="note">אינדיגו</span></figcaption></figure>
+      <figure><img src="12-warm-dark.png" alt="12 Warm Dark" /><figcaption>12 — Warm Dark <span class="note">חום-ענבר</span></figcaption></figure>
+      <figure><img src="13-teal-glow-dark.png" alt="13 Teal Glow" /><figcaption>13 — Teal Glow <span class="note">טורקיז זוהר</span></figcaption></figure>
+      <figure><img src="0-current-dark.png" alt="Current" /><figcaption>0 — Current <span class="note">המקורי (להשוואה)</span></figcaption></figure>
+    </div>
+  </body>
+</html>

@@ -1,9 +1,14 @@
 function readApiBaseUrl(): string {
   const runtimeUrl = window.__API_URL__;
-  if (typeof runtimeUrl === 'string' && runtimeUrl.length > 0) {
+  // An explicitly-set value (including an empty string) is honored as-is.
+  // Empty string => same-origin relative requests (proxied by the web server),
+  // which keeps the session cookie first-party in every browser.
+  if (typeof runtimeUrl === 'string') {
     return runtimeUrl.replace(/\/$/, '');
   }
 
+  // Only when the runtime env was never injected (local dev) do we assume the
+  // API is on localhost:3000.
   return 'http://localhost:3000';
 }
 
