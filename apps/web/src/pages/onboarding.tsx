@@ -37,8 +37,19 @@ export default function OnboardingPage() {
       })
       setVertical(picked)
       router.push('/')
-    } catch {
-      setError('שמירה נכשלה, נסו שוב')
+    } catch (err) {
+      // Surface the real reason (and log it) instead of swallowing it — a blank
+      // "save failed" with no detail is what made this impossible to diagnose.
+      const status = (err as { status?: number })?.status
+      const serverMessage = (err as { message?: string })?.message
+      console.error('onboarding save failed', { status, error: err })
+      setError(
+        status === 401
+          ? 'ההתחברות פגה, התחברו שוב'
+          : serverMessage && !/fetch|network|failed to fetch/i.test(serverMessage)
+            ? serverMessage
+            : 'שמירה נכשלה, נסו שוב',
+      )
       setSaving(false)
     }
   }

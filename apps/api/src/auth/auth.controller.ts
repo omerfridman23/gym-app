@@ -29,9 +29,12 @@ export class AuthController {
     const production = this.config.get('NODE_ENV') === 'production';
     return {
       httpOnly: true,
-      // Web and API live on different domains in production (Railway), so the
-      // cookie must be cross-site there; localhost ports are same-site in dev.
-      sameSite: production ? 'none' : 'lax',
+      // The web app proxies /api through its own origin (see web start.mjs), so
+      // the session cookie is first-party in production. 'lax' is therefore both
+      // correct and far more compatible than 'none' — in-app browsers (WhatsApp,
+      // Instagram) and Safari ITP block 'none'/third-party cookies, which was
+      // silently breaking onboarding for those clients.
+      sameSite: 'lax',
       secure: production,
       maxAge: THIRTY_DAYS_MS,
       path: '/',

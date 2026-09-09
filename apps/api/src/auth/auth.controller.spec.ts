@@ -60,7 +60,7 @@ describe('AuthController', () => {
     },
   );
 
-  it('sets a secure cross-site cookie in production', async () => {
+  it('sets a secure first-party cookie in production', async () => {
     const h = makeController('production');
     await expect(
       h.controller.verifyOtp(
@@ -69,9 +69,10 @@ describe('AuthController', () => {
       ),
     ).resolves.toEqual({ coach: h.coach });
 
+    // First-party (proxied same-origin) + lax so in-app browsers accept it.
     expect(h.response.cookie).toHaveBeenCalledWith(AUTH_COOKIE, 'signed.jwt', {
       httpOnly: true,
-      sameSite: 'none',
+      sameSite: 'lax',
       secure: true,
       maxAge: 30 * 24 * 60 * 60 * 1000,
       path: '/',
@@ -132,7 +133,7 @@ describe('AuthController', () => {
     expect(h.controller.logout(h.response as never)).toBeUndefined();
     expect(h.response.clearCookie).toHaveBeenCalledWith(AUTH_COOKIE, {
       httpOnly: true,
-      sameSite: 'none',
+      sameSite: 'lax',
       secure: true,
       maxAge: undefined,
       path: '/',

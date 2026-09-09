@@ -33,6 +33,7 @@ export default function LoginPage() {
       setCode('')
       setTimeout(() => codeInputRef.current?.focus(), 50)
     } catch (e) {
+      console.error('OTP request failed', e)
       setError(e instanceof ApiError ? e.message : 'שגיאה, נסו שוב')
     } finally {
       setBusy(false)
@@ -47,6 +48,7 @@ export default function LoginPage() {
       setCoach(coach)
       navigate(coach.onboarded ? '/' : '/onboarding', { replace: true })
     } catch (e) {
+      console.error('OTP verify failed', e)
       setError(e instanceof ApiError ? e.message : 'שגיאה, נסו שוב')
       setCode('')
     } finally {
