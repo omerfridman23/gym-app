@@ -35,6 +35,17 @@ function asWhatsApp(phone: string): string {
   return trimmed.startsWith('whatsapp:') ? trimmed : `whatsapp:${trimmed}`;
 }
 
+/** Logs are safe to keep: show only the last 4 digits of a phone number. */
+function maskPhone(phone: string): string {
+  const digits = (phone ?? '').replace(/\D/g, '');
+  if (digits.length <= 4) return '***';
+  return `***${digits.slice(-4)}`;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 interface TwilioCredentials {
   accountSid: string;
   apiKey: string;
@@ -119,7 +130,13 @@ export class TwilioSmsProvider extends TextSmsProvider {
         `https://verify.twilio.com/v2/Services/${credentials.verifyServiceSid}/Verifications`,
         { To: phone, Channel: 'sms' },
       );
-    } catch {
+      this.logger.log(`OTP sent via Twilio Verify to ${maskPhone(phone)}`);
+    } catch (error) {
+      // Log the underlying cause so future failures are diagnosable from logs;
+      // the client still sees a generic Hebrew message.
+      this.logger.error(
+        `OTP send failed for ${maskPhone(phone)}: ${errorMessage(error)}`,
+      );
       throw new InternalServerErrorException('שליחת הקוד נכשלה, נסו שוב');
     }
   }
@@ -160,8 +177,8 @@ export class TwilioSmsProvider extends TextSmsProvider {
         },
         body: new URLSearchParams(values),
       });
-    } catch {
-      this.logger.error('Twilio Verify request failed');
+    } catch (error) {
+      this.logger.error(`Twilio Verify request failed: ${errorMessage(error)}`);
       throw new SmsSendError('Twilio Verify request failed');
     }
 
@@ -169,7 +186,12 @@ export class TwilioSmsProvider extends TextSmsProvider {
       if (invalidCodeIsFalse && (response.status === 400 || response.status === 404)) {
         return null;
       }
-      this.logger.error(`Twilio Verify responded ${response.status}`);
+      // Twilio error bodies carry a code + human message (no secrets) that
+      // explain exactly why the call failed — invaluable when debugging.
+      const detail = await response.text().catch(() => '');
+      this.logger.error(
+        `Twilio Verify responded ${response.status}${detail ? `: ${detail}` : ''}`,
+      );
       throw new SmsSendError(`Twilio Verify responded ${response.status}`);
     }
 
@@ -199,14 +221,19 @@ export class TwilioSmsProvider extends TextSmsProvider {
         },
         body,
       });
-    } catch {
+    } catch (error) {
       // Message bodies stay out of the logs — they contain client names.
-      this.logger.error(`Twilio request failed for ${to}`);
+      this.logger.error(
+        `Twilio request failed for ${maskPhone(to)}: ${errorMessage(error)}`,
+      );
       throw new SmsSendError('Twilio request failed');
     }
 
     if (!response.ok) {
-      this.logger.error(`Twilio responded ${response.status} sending to ${to}`);
+      const detail = await response.text().catch(() => '');
+      this.logger.error(
+        `Twilio responded ${response.status} sending to ${maskPhone(to)}${detail ? `: ${detail}` : ''}`,
+      );
       throw new SmsSendError(`Twilio responded ${response.status}`);
     }
   }

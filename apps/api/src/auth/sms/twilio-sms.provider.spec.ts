@@ -133,7 +133,11 @@ describe('TwilioSmsProvider', () => {
   });
 
   it('throws a generic Hebrew error when Twilio returns a non-OK status', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 401 });
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => '{"code":20003,"message":"Authenticate"}',
+    });
     const provider = new TwilioSmsProvider(
       config(),
       settings({

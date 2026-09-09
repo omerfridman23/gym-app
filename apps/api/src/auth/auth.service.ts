@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -30,8 +31,17 @@ export interface CoachSession {
   onboarded: boolean;
 }
 
+/** Show only the last 4 digits so logs stay useful without exposing numbers. */
+function maskPhone(phone: string): string {
+  const digits = (phone ?? '').replace(/\D/g, '');
+  if (digits.length <= 4) return '***';
+  return `***${digits.slice(-4)}`;
+}
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly repo: AuthRepository,
     private readonly jwt: JwtService,
@@ -76,10 +86,12 @@ export class AuthService {
     if (this.isDevLogin(rawPhone)) return;
 
     const phone = this.normalizePhone(rawPhone);
+    this.logger.log(`OTP requested for ${maskPhone(phone)}`);
 
     const since = new Date(Date.now() - OTP_REQUEST_WINDOW_MS);
     const recent = await this.repo.countRecentOtpRequests(phone, since);
     if (recent >= OTP_REQUESTS_PER_WINDOW) {
+      this.logger.warn(`OTP rate-limited for ${maskPhone(phone)}`);
       throw new HttpException(
         'יותר מדי בקשות, נסו שוב מאוחר יותר',
         HttpStatus.TOO_MANY_REQUESTS,
@@ -127,6 +139,9 @@ export class AuthService {
     const coach = await this.repo.findOrCreateCoach(phone);
     const token = await this.jwt.signAsync({ sub: coach.id });
 
+    this.logger.log(
+      `OTP verified for ${maskPhone(phone)} (coach ${coach.id}, onboarded=${coach.onboardedAt !== null})`,
+    );
     return { token, coach: this.toSession(coach) };
   }
 

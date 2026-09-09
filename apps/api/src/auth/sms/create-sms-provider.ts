@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { SettingsService } from '../../settings/settings.service.js';
 import { DevSmsProvider } from './dev-sms.provider.js';
@@ -13,6 +14,10 @@ export function createSmsProvider(
   const driver = (
     config.get<string>('SMS_DRIVER') ?? (production ? 'twilio' : 'dev')
   ).toLowerCase();
+
+  new Logger('SmsProvider').log(
+    `SMS driver: ${driver} (NODE_ENV=${config.get('NODE_ENV') ?? 'undefined'})`,
+  );
 
   if (driver === '019') {
     for (const key of SMS019_ENV_KEYS) {
