@@ -1,0 +1,11 @@
+CoachOS fonts
+
+Family: Assistant Variable (fallback: Assistant, system-ui)
+Source in app: @fontsource-variable/assistant
+Google Fonts equivalent: https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap
+
+Weights used:
+- 400 regular (body)
+- 600 semibold (labels)
+- 700 bold (buttons, nav)
+- 800 extrabold (headings, amounts)
