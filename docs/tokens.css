@@ -1,0 +1,79 @@
+/*
+  CoachOS design tokens — extracted from apps/web/src/index.css
+  Public copy for documentation. No secrets.
+  Default theme is Ocean (light blue). Ink is the dark green mode.
+*/
+
+:root,
+html.theme-ocean {
+  color-scheme: light;
+  --font-assistant: 'Assistant Variable', 'Assistant', system-ui, sans-serif;
+  --canvas: #e5edf5;
+  --ink: #122032;
+  --paper: #f4f8fc;
+  --surface: #ffffff;
+  --surface-2: #e9f0f8;
+  --line: #d7e2ee;
+  --court: #2563c9;
+  --court-strong: #1d4fa8;
+  --court-tint: #dce8fb;
+  --owed: #122032;
+  --owed-tint: #e9f0f8;
+  --muted: #647388;
+  --court-gradient-base: #2563c9;
+  --court-gradient-glow: rgba(255, 255, 255, 0.24);
+  --court-gradient-from: #3b78e0;
+  --court-gradient-to: #1c4fa6;
+  --owed-gradient-base: #16233a;
+  --owed-gradient-glow: rgba(255, 255, 255, 0.1);
+  --owed-gradient-from: #22344f;
+  --owed-gradient-to: #111a2b;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.5rem;
+}
+
+html.theme-ink {
+  color-scheme: dark;
+  --canvas: #050706;
+  --ink: #f0f3f1;
+  --paper: #0c0f0e;
+  --surface: #141817;
+  --surface-2: #1c211f;
+  --line: #262c2a;
+  --court: #32c295;
+  --court-strong: #26a37d;
+  --court-tint: #123027;
+  --owed: #f0f3f1;
+  --owed-tint: #1c211f;
+  --muted: #828d88;
+  --court-gradient-base: #0b1210;
+  --court-gradient-glow: rgba(50, 194, 149, 0.22);
+  --court-gradient-from: #101613;
+  --court-gradient-to: #090c0b;
+  --owed-gradient-base: #0d0f0e;
+  --owed-gradient-glow: rgba(240, 243, 241, 0.08);
+  --owed-gradient-from: #161a19;
+  --owed-gradient-to: #0a0d0c;
+}
+
+.bg-court-gradient {
+  background-color: var(--court-gradient-base);
+  background-image:
+    radial-gradient(120% 130% at 85% -10%, var(--court-gradient-glow) 0%, transparent 58%),
+    linear-gradient(155deg, var(--court-gradient-from) 0%, var(--court-gradient-to) 100%);
+}
+
+.bg-owed-gradient {
+  background-color: var(--owed-gradient-base);
+  background-image:
+    radial-gradient(120% 130% at 85% -10%, var(--owed-gradient-glow) 0%, transparent 58%),
+    linear-gradient(155deg, var(--owed-gradient-from) 0%, var(--owed-gradient-to) 100%);
+}
+
+.ltr-nums {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}

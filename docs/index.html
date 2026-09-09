@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CoachOS — public docs index</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: var(--font-assistant);
+      background: var(--canvas);
+      color: var(--ink);
+      line-height: 1.6;
+    }
+    main { max-width: 820px; margin: 0 auto; padding: 32px 20px 80px; }
+    h1 { font-size: 32px; margin: 0 0 8px; }
+    h2 { font-size: 20px; margin: 32px 0 10px; }
+    p { color: var(--muted); }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { margin: 0 0 8px; }
+    a {
+      display: block;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--court-strong);
+      text-decoration: none;
+      font-weight: 700;
+    }
+    a:hover { background: var(--court-tint); }
+    .note { font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>CoachOS — public docs</h1>
+    <p>Index of every public file on this GitHub Pages site. All links below are static <code>&lt;a href&gt;</code> tags so external tools can follow them.</p>
+    <p class="note">No secrets, no .env, no live coach or client data. Screenshots use dummy names.</p>
+
+    <h2>User guide</h2>
+    <ul>
+      <li><a href="guide.html">guide.html — illustrated Hebrew guide (HTML, phone mockups)</a></li>
+      <li><a href="GUIDE-HE.md">GUIDE-HE.md — same guide as Markdown</a></li>
+    </ul>
+
+    <h2>Product spec and tokens</h2>
+    <ul>
+      <li><a href="SPEC.md">SPEC.md — technical product spec</a></li>
+      <li><a href="tokens.css">tokens.css — Ocean / Ink theme tokens</a></li>
+      <li><a href="vertical-config.ts">vertical-config.ts — padel vs fitness labels and fields</a></li>
+    </ul>
+
+    <h2>Database</h2>
+    <ul>
+      <li><a href="schema.prisma">schema.prisma — Prisma data model</a></li>
+      <li><a href="migrations/20260902201628_init_coach_schema.sql">migrations/20260902201628_init_coach_schema.sql</a></li>
+      <li><a href="migrations/20260906190000_rls_treat_empty_coach_id_as_null.sql">migrations/20260906190000_rls_treat_empty_coach_id_as_null.sql</a></li>
+      <li><a href="migrations/20260906193000_add_settings.sql">migrations/20260906193000_add_settings.sql</a></li>
+      <li><a href="migrations/20260906200000_add_reminder_delivery_state.sql">migrations/20260906200000_add_reminder_delivery_state.sql</a></li>
+      <li><a href="migrations/20260908200000_add_public_booking.sql">migrations/20260908200000_add_public_booking.sql</a></li>
+      <li><a href="migrations/20260908213000_harden_public_booking.sql">migrations/20260908213000_harden_public_booking.sql</a></li>
+    </ul>
+
+    <h2>Screenshots (dummy data)</h2>
+    <ul>
+      <li><a href="screens.html">screens.html — screenshot gallery with image links</a></li>
+      <li><a href="screens/login.png">screens/login.png — login</a></li>
+      <li><a href="screens/today.png">screens/today.png — Today with dummy sessions</a></li>
+      <li><a href="screens/today-empty.png">screens/today-empty.png — Today empty state</a></li>
+      <li><a href="screens/book.png">screens/book.png — public booking page</a></li>
+      <li><a href="screens/confirm.png">screens/confirm.png — public confirm page</a></li>
+      <li><a href="screens/ink.png">screens/ink.png — Ink theme toggle</a></li>
+    </ul>
+  </main>
+</body>
+</html>
