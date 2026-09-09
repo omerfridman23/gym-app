@@ -16,7 +16,7 @@ const VERTICALS: { id: Vertical; label: string; desc: string; icon: React.ReactN
 export default function OnboardingPage() {
   const router = useRouter()
   const { setVertical } = useVertical()
-  const { completeOnboarding } = useAuth()
+  const { completeOnboarding, setCoach } = useAuth()
   const [step, setStep] = useState(0)
   const [picked, setPicked] = useState<Vertical | null>(null)
   const [name, setName] = useState('')
@@ -43,12 +43,17 @@ export default function OnboardingPage() {
       const status = (err as { status?: number })?.status
       const serverMessage = (err as { message?: string })?.message
       console.error('onboarding save failed', { status, error: err })
+      if (status === 401) {
+        // The session cookie was lost (e.g. restrictive in-app browser).
+        // Reset the session so RequireAuth returns the user to the login page
+        // for a fresh code, instead of leaving them stuck on a dead form.
+        setCoach(null)
+        return
+      }
       setError(
-        status === 401
-          ? 'ההתחברות פגה, התחברו שוב'
-          : serverMessage && !/fetch|network|failed to fetch/i.test(serverMessage)
-            ? serverMessage
-            : 'שמירה נכשלה, נסו שוב',
+        serverMessage && !/fetch|network|failed to fetch/i.test(serverMessage)
+          ? serverMessage
+          : 'שמירה נכשלה, נסו שוב',
       )
       setSaving(false)
     }
