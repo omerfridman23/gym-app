@@ -61,6 +61,7 @@ describe('booking (e2e)', () => {
         name: 'דנה כהן',
         vertical: 'padel',
         defaultPriceAgorot: 15000,
+        defaultCourtCostAgorot: 7500,
         onboarded: true,
       })
       .expect(200);
@@ -68,6 +69,9 @@ describe('booking (e2e)', () => {
     expect(saved.body.coach).toMatchObject({
       name: 'דנה כהן',
       vertical: 'padel',
+    });
+    expect(saved.body.profile).toMatchObject({
+      defaultCourtCostAgorot: 7500,
     });
 
     const me = await ctx
@@ -255,6 +259,7 @@ describe('booking (e2e)', () => {
         status: 'pending',
         paid: false,
         location: 'מגרש 1',
+        courtCostAgorot: 7500,
       });
       // Every session carries its own public confirm token.
       expect(session.confirmToken).toMatch(/^[0-9a-f-]{36}$/);
@@ -328,6 +333,104 @@ describe('booking (e2e)', () => {
       expect(hours).toEqual(new Set([israelTime(startsAt)]));
     });
 
+    it('reschedules a session without replacing its identity and blocks overlaps', async () => {
+      const firstStart = new Date(Date.now() + 20 * 86_400_000);
+      firstStart.setUTCHours(10, 0, 0, 0);
+      const occupiedStart = new Date(firstStart.getTime() + 2 * 3_600_000);
+      const [first, occupied] = await Promise.all(
+        [firstStart, occupiedStart].map((startsAt) =>
+          ctx
+            .http()
+            .post('/api/sessions')
+            .set('Cookie', coach.cookie)
+            .send({
+              clientId,
+              typeId: 'private',
+              startsAt: startsAt.toISOString(),
+              durationMin: 60,
+              priceAgorot: 12000,
+            }),
+        ),
+      );
+      expect(first.status).toBe(201);
+      expect(occupied.status).toBe(201);
+      const original = first.body.sessions[0];
+
+      await ctx
+        .http()
+        .patch(`/api/sessions/${original.id}`)
+        .set('Cookie', coach.cookie)
+        .send({ startsAt: occupiedStart.toISOString() })
+        .expect(409);
+
+      const nextStart = new Date(firstStart.getTime() + 4 * 3_600_000);
+      const moved = await ctx
+        .http()
+        .patch(`/api/sessions/${original.id}`)
+        .set('Cookie', coach.cookie)
+        .send({
+          startsAt: nextStart.toISOString(),
+          durationMin: 90,
+          priceAgorot: 18000,
+        })
+        .expect(200);
+      expect(moved.body.session).toMatchObject({
+        id: original.id,
+        confirmToken: original.confirmToken,
+        startsAt: nextStart.toISOString(),
+        durationMin: 90,
+        priceAgorot: 18000,
+      });
+    });
+
+    it('edits and deletes this-and-future occurrences of a series', async () => {
+      const date = addDaysToIsoDate(israelDateIso(new Date()), 35);
+      const startsAt = israelWallClockToUtc(date, '06:30').toISOString();
+      const response = await ctx
+        .http()
+        .post('/api/sessions')
+        .set('Cookie', coach.cookie)
+        .send({
+          clientId,
+          typeId: 'private',
+          startsAt,
+          repeatWeekly: true,
+        })
+        .expect(201);
+      const sessions = response.body.sessions as {
+        id: string;
+        seriesId: string;
+        startsAt: string;
+      }[];
+      const movedStart = israelWallClockToUtc(date, '07:30').toISOString();
+
+      await ctx
+        .http()
+        .patch(`/api/sessions/${sessions[0].id}`)
+        .set('Cookie', coach.cookie)
+        .send({ startsAt: movedStart, scope: 'future' })
+        .expect(200);
+
+      const moved = await ctx.admin.session.findMany({
+        where: { seriesId: sessions[0].seriesId, deletedAt: null },
+        orderBy: { startsAt: 'asc' },
+      });
+      expect(new Set(moved.map((session) => israelTime(session.startsAt.toISOString()))))
+        .toEqual(new Set(['07:30']));
+
+      await ctx
+        .http()
+        .delete(`/api/sessions/${moved[2].id}`)
+        .query({ scope: 'future' })
+        .set('Cookie', coach.cookie)
+        .expect(204);
+      await expect(
+        ctx.admin.session.count({
+          where: { seriesId: sessions[0].seriesId, deletedAt: null },
+        }),
+      ).resolves.toBe(2);
+    });
+
     it('records attendance and settles the debt', async () => {
       const startsAt = new Date(Date.now() - 3 * 3_600_000).toISOString();
       const booked = await ctx
@@ -391,13 +494,55 @@ describe('booking (e2e)', () => {
         .http()
         .post('/api/packages')
         .set('Cookie', coach.cookie)
-        .send({ clientId, totalSessions: 10, purchasedAgorot: 100_000 })
+        .send({
+          clientId,
+          totalSessions: 10,
+          purchasedAgorot: 100_000,
+          paymentMethod: 'bit',
+        })
         .expect(201);
 
       expect(sold.body.package).toMatchObject({
         totalSessions: 10,
         remaining: 10,
       });
+      await expect(
+        ctx.admin.payment.count({
+          where: {
+            coachId: coach.coachId,
+            clientId,
+            amountAgorot: 100_000,
+            method: 'bit',
+          },
+        }),
+      ).resolves.toBe(1);
+
+      const packageSession = await ctx
+        .http()
+        .post('/api/sessions')
+        .set('Cookie', coach.cookie)
+        .send({
+          clientId,
+          typeId: 'private',
+          startsAt: new Date(Date.now() + 25 * 86_400_000).toISOString(),
+          priceAgorot: 12000,
+        })
+        .expect(201);
+      expect(packageSession.body.sessions[0]).toMatchObject({
+        packageId: sold.body.package.id,
+        priceAgorot: 0,
+      });
+
+      const packages = await ctx
+        .http()
+        .get('/api/packages')
+        .set('Cookie', coach.cookie)
+        .expect(200);
+      expect(
+        packages.body.packages.find(
+          (item: { id: string }) => item.id === sold.body.package.id,
+        ),
+      ).toMatchObject({ remaining: 9 });
     });
 
     it('hides a soft-deleted client from the list', async () => {

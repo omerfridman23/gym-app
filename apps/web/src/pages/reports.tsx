@@ -6,7 +6,12 @@ import { ArrowRight, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { InitialsAvatar } from '@/components/initials-avatar'
 import { useData, totalOutstanding } from '@/lib/data'
-import { fromISODate, formatShekel, MONTHS_HE } from '@/lib/format'
+import {
+  fromISODate,
+  formatShekel,
+  formatSignedShekel,
+  MONTHS_HE,
+} from '@/lib/format'
 
 type Range = 'month' | 'week' | 'all'
 
@@ -51,11 +56,18 @@ export default function ReportsPage() {
       .filter((p) => inRange(p.date))
       .reduce((sum, p) => sum + p.purchasedAgorot, 0)
     const revenue = collected + packageRevenue
+    const courtCosts = done.reduce(
+      (sum, session) => sum + (session.courtCostAgorot ?? 0),
+      0,
+    )
+    const netAfterCourt = revenue - courtCosts
     const collectRate = collected + owed > 0 ? Math.round((collected / (collected + owed)) * 100) : 100
 
     const arrived = done.filter((s) => s.attendance === 'arrived').length
     const noShow = done.filter((s) => s.attendance === 'no_show').length
-    const attendanceRate = arrived + noShow > 0 ? Math.round((arrived / (arrived + noShow)) * 100) : 100
+    const attendanceTotal = arrived + noShow
+    const attendanceRate =
+      attendanceTotal > 0 ? Math.round((arrived / attendanceTotal) * 100) : null
 
     // Sessions per client (chargeable + package), for the top list
     const byClient = new Map<string, { count: number; revenue: number }>()
@@ -74,10 +86,13 @@ export default function ReportsPage() {
     return {
       sessionCount: done.length,
       revenue,
+      courtCosts,
+      netAfterCourt,
       collected,
       owed,
       collectRate,
       attendanceRate,
+      attendanceTotal,
       arrived,
       noShow,
       topClients,
@@ -158,18 +173,33 @@ export default function ReportsPage() {
         <section className="mx-5 mt-4 rounded-3xl bg-court-gradient p-5 text-white shadow-md">
           <div className="flex items-center gap-2 text-white/85">
             <TrendingUp className="size-4" />
-            <p className="text-sm font-semibold">הכנסות {rangeLabel}</p>
+            <p className="text-sm font-semibold">
+              {config.requiresLocation ? 'נטו אחרי מגרשים' : 'הכנסות'} {rangeLabel}
+            </p>
           </div>
           <p className="ltr-nums mt-1 text-[42px] font-extrabold leading-none tracking-tight">
-            {formatShekel(stats.revenue)}
+            {formatSignedShekel(
+              config.requiresLocation ? stats.netAfterCourt : stats.revenue,
+            )}
           </p>
-          <p className="mt-2 text-sm font-medium text-white/85">
-            {stats.sessionCount} {config.terms.sessions} בוצעו
-          </p>
+          {config.requiresLocation ? (
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold text-white/85">
+              <span>הכנסות {formatShekel(stats.revenue)}</span>
+              <span>מגרשים −{formatShekel(stats.courtCosts)}</span>
+            </div>
+          ) : (
+            <p className="mt-2 text-sm font-medium text-white/85">
+              {stats.sessionCount} {config.terms.sessions} בוצעו
+            </p>
+          )}
         </section>
 
         {/* Collection + attendance */}
-        <div className="mx-5 mt-3 grid grid-cols-2 gap-3">
+        <div
+          className={`mx-5 mt-3 grid gap-3 ${
+            stats.attendanceRate === null ? 'grid-cols-1' : 'grid-cols-2'
+          }`}
+        >
           <RateCard
             label="אחוז גבייה"
             value={`${stats.collectRate}%`}
@@ -177,13 +207,15 @@ export default function ReportsPage() {
             tone="paid"
             pct={stats.collectRate}
           />
-          <RateCard
-            label="אחוז הגעה"
-            value={`${stats.attendanceRate}%`}
-            hint={`${stats.noShow} לא הגיעו`}
-            tone="court"
-            pct={stats.attendanceRate}
-          />
+          {stats.attendanceRate !== null ? (
+            <RateCard
+              label="אחוז הגעה"
+              value={`${stats.attendanceRate}%`}
+              hint={`${stats.noShow} לא הגיעו מתוך ${stats.attendanceTotal}`}
+              tone="court"
+              pct={stats.attendanceRate}
+            />
+          ) : null}
         </div>
 
         {/* Outstanding callout */}

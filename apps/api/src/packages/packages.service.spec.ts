@@ -71,10 +71,16 @@ function makeHarness(
   const sessionGroupBy = vi.fn(
     async (_args: Record<string, unknown>) => rows.used ?? [],
   );
+  const paymentCreate = vi.fn(async ({ data }) => ({
+    id: 'payment-1',
+    ...data,
+  }));
 
   const tx = {
+    $executeRaw: vi.fn(async () => 1),
     client: { findFirst: clientFindFirst },
     package: { findMany: packageFindMany, create: packageCreate },
+    payment: { create: paymentCreate },
     session: { groupBy: sessionGroupBy },
   };
   const withCoach = vi.fn((coachId: string, fn: (t: typeof tx) => unknown) => {
@@ -87,6 +93,7 @@ function makeHarness(
     clientFindFirst,
     packageFindMany,
     packageCreate,
+    paymentCreate,
     sessionGroupBy,
     service: new PackagesService({ withCoach } as unknown as PrismaService),
   };
@@ -459,5 +466,23 @@ describe('PackagesService.create', () => {
       totalSessions: 8,
       remaining: 8,
     });
+  });
+
+  it('records the package payment in the same scoped transaction', async () => {
+    const h = makeHarness();
+    await h.service.create(OWNER, {
+      ...valid,
+      paymentMethod: 'bit',
+    });
+
+    expect(h.paymentCreate).toHaveBeenCalledWith({
+      data: {
+        coachId: OWNER,
+        clientId: 'client-1',
+        amountAgorot: valid.purchasedAgorot,
+        method: 'bit',
+      },
+    });
+    expect(h.withCoach).toHaveBeenCalledTimes(1);
   });
 });

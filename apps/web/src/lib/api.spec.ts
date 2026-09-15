@@ -157,6 +157,167 @@ describe('authApi', () => {
   })
 })
 
+describe('native session token', () => {
+  /**
+   * Loads api.ts as the packaged iOS build sees it: native platform, an absolute
+   * build-time API URL, and a Preferences store standing in for UserDefaults.
+   */
+  async function loadNativeApi(
+    stored: string | null = null,
+    apiUrl = 'https://api.example.com',
+  ) {
+    vi.resetModules()
+    vi.stubGlobal('window', {})
+    vi.stubEnv('VITE_API_URL', apiUrl)
+
+    const store = new Map<string, string>()
+    if (stored !== null) store.set('coach_session_token', stored)
+
+    const preferences = {
+      get: vi.fn(async ({ key }: { key: string }) => ({ value: store.get(key) ?? null })),
+      set: vi.fn(async ({ key, value }: { key: string; value: string }) => {
+        store.set(key, value)
+      }),
+      remove: vi.fn(async ({ key }: { key: string }) => {
+        store.delete(key)
+      }),
+    }
+
+    vi.doMock('./native', () => ({
+      isNativePlatform: () => true,
+      nativePlatform: () => 'ios',
+    }))
+    vi.doMock('@capacitor/preferences', () => ({ Preferences: preferences }))
+
+    return { api: await import('./api'), preferences, store }
+  }
+
+  afterEach(() => {
+    vi.doUnmock('./native')
+    vi.doUnmock('@capacitor/preferences')
+    vi.unstubAllEnvs()
+  })
+
+  it('builds requests against the compiled-in API origin', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(200, { clients: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { api } = await loadNativeApi()
+
+    await api.dataApi.listClients()
+
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.example.com/api/clients')
+  })
+
+  it('attaches the stored token as a bearer header', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(200, { clients: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { api } = await loadNativeApi('stored.jwt')
+
+    await api.dataApi.listClients()
+
+    expect(fetchMock.mock.calls[0][1].headers).toEqual({
+      Authorization: 'Bearer stored.jwt',
+    })
+  })
+
+  it('sends no bearer header before the coach has logged in', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(200, { clients: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { api } = await loadNativeApi(null)
+
+    await api.dataApi.listClients()
+
+    expect(fetchMock.mock.calls[0][1].headers).toBeUndefined()
+  })
+
+  it('reads the stored token only once across many requests', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(200, { clients: [] })))
+    const { api, preferences } = await loadNativeApi('stored.jwt')
+
+    await Promise.all([
+      api.dataApi.listClients(),
+      api.dataApi.listClients(),
+      api.dataApi.listClients(),
+    ])
+
+    expect(preferences.get).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks for the token instead of a cookie when verifying an OTP', async () => {
+    const coach = { id: 'c1', phone: '+972501234567', name: '', vertical: null, onboarded: false }
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(response(200, { coach, token: 'fresh.jwt' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { api, store } = await loadNativeApi()
+
+    await expect(api.authApi.verifyOtp('0501234567', '123456')).resolves.toEqual(coach)
+
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ 'X-Auth-Mode': 'token' })
+    expect(store.get('coach_session_token')).toBe('fresh.jwt')
+  })
+
+  it('uses the new token immediately after logging in, without re-reading storage', async () => {
+    const coach = { id: 'c1', phone: '+972501234567', name: '', vertical: null, onboarded: false }
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, { coach, token: 'fresh.jwt' }))
+      .mockResolvedValue(response(200, { clients: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { api } = await loadNativeApi()
+
+    await api.authApi.verifyOtp('0501234567', '123456')
+    await api.dataApi.listClients()
+
+    expect(fetchMock.mock.calls[1][1].headers).toEqual({
+      Authorization: 'Bearer fresh.jwt',
+    })
+  })
+
+  it('refuses a login the server did not issue a token for', async () => {
+    const coach = { id: 'c1', phone: '+972501234567', name: '', vertical: null, onboarded: false }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(200, { coach })))
+    const { api, store } = await loadNativeApi()
+
+    await expect(api.authApi.verifyOtp('0501234567', '123456')).rejects.toBeInstanceOf(
+      api.ApiError,
+    )
+    expect(store.has('coach_session_token')).toBe(false)
+  })
+
+  it('drops a rejected token so the next launch shows the login screen', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(401, { message: 'Unauthorized' })))
+    const { api, store } = await loadNativeApi('expired.jwt')
+
+    await expect(api.authApi.me()).resolves.toBeNull()
+
+    expect(store.has('coach_session_token')).toBe(false)
+  })
+
+  it('keeps the token when the session probe fails for a non-auth reason', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(500, {})))
+    const { api, store } = await loadNativeApi('good.jwt')
+
+    await expect(api.authApi.me()).rejects.toBeInstanceOf(api.ApiError)
+
+    expect(store.get('coach_session_token')).toBe('good.jwt')
+  })
+
+  it('clears the local token even when the logout request fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    const { api, store } = await loadNativeApi('good.jwt')
+
+    await expect(api.authApi.logout()).rejects.toBeInstanceOf(TypeError)
+
+    expect(store.has('coach_session_token')).toBe(false)
+  })
+
+  it('fails the build rather than shipping an app with no API URL', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+    await expect(loadNativeApi(null, '')).rejects.toThrow(/VITE_API_URL/)
+  })
+})
+
 describe('dataApi and publicApi endpoint contracts', () => {
   it('URL-encodes session range query values', async () => {
     const fetchMock = vi.fn().mockResolvedValue(response(200, { sessions: [] }))

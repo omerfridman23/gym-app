@@ -1,4 +1,24 @@
+import { isNativePlatform } from './native';
+import {
+  clearSessionToken,
+  getSessionToken,
+  setSessionToken,
+} from './session-token';
+
 function readApiBaseUrl(): string {
+  // The native build has no web server in front of it to proxy /api, so it must
+  // be compiled against an absolute API URL. See scripts/check-native-env.mjs,
+  // which fails the iOS build when VITE_API_URL is missing.
+  if (isNativePlatform()) {
+    const buildTimeUrl = import.meta.env.VITE_API_URL;
+    if (!buildTimeUrl) {
+      throw new Error(
+        'VITE_API_URL must be set when building the native app — the bundled app has no API proxy.',
+      );
+    }
+    return buildTimeUrl.replace(/\/$/, '');
+  }
+
   const runtimeUrl = window.__API_URL__;
   // An explicitly-set value (including an empty string) is honored as-is.
   // Empty string => same-origin relative requests (proxied by the web server),
@@ -23,11 +43,32 @@ export class ApiError extends Error {
   }
 }
 
+/** Every call site in this file passes a plain object or nothing, never a Headers. */
+async function buildHeaders(
+  init?: RequestInit,
+): Promise<Record<string, string> | undefined> {
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+
+  if (init?.body && !('Content-Type' in headers)) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  // Native only: browsers attach the httpOnly session cookie instead.
+  const token = await getSessionToken();
+  if (token && !('Authorization' in headers)) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return Object.keys(headers).length > 0 ? headers : undefined;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}/api${path}`, {
     credentials: 'include',
-    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
     ...init,
+    headers: await buildHeaders(init),
   });
 
   if (!response.ok) {
@@ -57,6 +98,7 @@ export interface UpdateCoachInput {
   name?: string;
   vertical?: 'padel' | 'fitness';
   defaultPriceAgorot?: number;
+  defaultCourtCostAgorot?: number;
   reminderHoursBefore?: number;
   cancellationPolicy?: string;
   templates?: { reminder?: string; debt?: string };
@@ -72,6 +114,7 @@ export interface CoachProfile {
   name: string;
   vertical: 'padel' | 'fitness' | null;
   defaultPriceAgorot: number;
+  defaultCourtCostAgorot: number;
   reminderHoursBefore: number;
   cancellationPolicy: string;
   templates: { reminder?: string; debt?: string };
@@ -102,6 +145,7 @@ export interface ApiSession {
   durationMin: number;
   location: string | null;
   priceAgorot: number;
+  courtCostAgorot?: number;
   status: 'pending' | 'confirmed' | 'cancelled' | 'done';
   paid: boolean;
   packageId: string | null;
@@ -128,6 +172,13 @@ export interface ApiPackage {
   remaining: number;
 }
 
+export interface UpdateClientInput {
+  name?: string;
+  phone?: string;
+  fields?: Record<string, string>;
+  priceAgorot?: number;
+}
+
 /** A session whose reminder is due now, with the message already rendered. */
 export interface ApiDueReminder {
   sessionId: string;
@@ -150,10 +201,17 @@ export interface CreateSessionInput {
   durationMin: number;
   location?: string;
   priceAgorot: number;
+  courtCostAgorot?: number;
   repeatWeekly?: boolean;
 }
 
 export interface UpdateSessionInput {
+  startsAt?: string;
+  durationMin?: number;
+  location?: string | null;
+  priceAgorot?: number;
+  courtCostAgorot?: number;
+  scope?: 'single' | 'future';
   status?: 'pending' | 'confirmed' | 'cancelled' | 'done';
   cancelReason?: string | null;
   paid?: boolean;
@@ -194,6 +252,18 @@ export const dataApi = {
     return client;
   },
 
+  async updateClient(id: string, input: UpdateClientInput): Promise<ApiClient> {
+    const { client } = await request<{ client: ApiClient }>(`/clients/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+    return client;
+  },
+
+  async deleteClient(id: string): Promise<void> {
+    await request(`/clients/${id}`, { method: 'DELETE' });
+  },
+
   async listSessions(fromIso: string, toIso: string): Promise<ApiSession[]> {
     const query = new URLSearchParams({ from: fromIso, to: toIso });
     const { sessions } = await request<{ sessions: ApiSession[] }>(`/sessions?${query}`);
@@ -214,6 +284,13 @@ export const dataApi = {
       body: JSON.stringify(input),
     });
     return session;
+  },
+
+  async deleteSession(
+    id: string,
+    scope: 'single' | 'future' = 'single',
+  ): Promise<void> {
+    await request(`/sessions/${id}?scope=${scope}`, { method: 'DELETE' });
   },
 
   async listPayments(): Promise<ApiPayment[]> {
@@ -237,6 +314,19 @@ export const dataApi = {
   async listPackages(): Promise<ApiPackage[]> {
     const { packages } = await request<{ packages: ApiPackage[] }>('/packages');
     return packages;
+  },
+
+  async createPackage(input: {
+    clientId: string;
+    totalSessions: number;
+    purchasedAgorot: number;
+    paymentMethod: 'cash' | 'bit' | 'transfer' | 'card';
+  }): Promise<ApiPackage> {
+    const { package: created } = await request<{ package: ApiPackage }>(
+      '/packages',
+      { method: 'POST', body: JSON.stringify(input) },
+    );
+    return created;
   },
 
   async listDueReminders(): Promise<ApiDueReminder[]> {
@@ -336,10 +426,21 @@ export const authApi = {
   },
 
   async verifyOtp(phone: string, code: string): Promise<CoachSession> {
-    const { coach } = await request<{ coach: CoachSession }>('/auth/otp/verify', {
-      method: 'POST',
-      body: JSON.stringify({ phone, code }),
-    });
+    const { coach, token } = await request<{ coach: CoachSession; token?: string }>(
+      '/auth/otp/verify',
+      {
+        method: 'POST',
+        body: JSON.stringify({ phone, code }),
+        // Ask for the JWT in the body instead of a cookie the WebView can't send.
+        headers: isNativePlatform() ? { 'X-Auth-Mode': 'token' } : undefined,
+      },
+    );
+
+    if (isNativePlatform()) {
+      if (!token) throw new ApiError(500, 'לא התקבל אישור התחברות מהשרת');
+      await setSessionToken(token);
+    }
+
     return coach;
   },
 
@@ -348,13 +449,23 @@ export const authApi = {
       const { coach } = await request<{ coach: CoachSession | null }>('/auth/me');
       return coach;
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) return null;
+      if (error instanceof ApiError && error.status === 401) {
+        // The stored token expired or was revoked; drop it so the next cold
+        // start goes straight to the login screen.
+        await clearSessionToken();
+        return null;
+      }
       throw error;
     }
   },
 
-  logout(): Promise<void> {
-    return request('/auth/logout', { method: 'POST' });
+  async logout(): Promise<void> {
+    try {
+      await request('/auth/logout', { method: 'POST' });
+    } finally {
+      // The local session must go even if the network call fails.
+      await clearSessionToken();
+    }
   },
 
   async updateCoach(input: UpdateCoachInput): Promise<CoachSession> {

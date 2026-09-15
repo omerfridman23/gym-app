@@ -21,6 +21,7 @@ function coach(overrides: Record<string, unknown> = {}) {
     name: 'דנה המאמנת',
     vertical: 'padel',
     defaultPriceAgorot: 18_000,
+    defaultCourtCostAgorot: 7_500,
     bookingSlug: SLUG,
     bookingEnabled: true,
     bookingStartHour: 8,
@@ -34,6 +35,8 @@ interface FakeRows {
   coach?: ReturnType<typeof coach> | null;
   busy?: { startsAt: Date; durationMin: number }[];
   clients?: { id: string; phone: string; priceAgorot: number }[];
+  packages?: { id: string; totalSessions: number; purchasedAt: Date }[];
+  packageUsage?: { packageId: string; _count: { _all: number } }[];
   upcomingPendingCount?: number;
   recentBookingCount?: number;
 }
@@ -90,6 +93,8 @@ function makeDb(rows: FakeRows = {}) {
     }),
   );
   const executeRaw = vi.fn(async () => 1);
+  const packageFindMany = vi.fn(async () => rows.packages ?? []);
+  const sessionGroupBy = vi.fn(async () => rows.packageUsage ?? []);
 
   const db: Record<string, unknown> = {
     coach: { findFirst: coachFindFirst },
@@ -97,7 +102,9 @@ function makeDb(rows: FakeRows = {}) {
       findMany: sessionFindMany,
       count: sessionCount,
       create: sessionCreate,
+      groupBy: sessionGroupBy,
     },
+    package: { findMany: packageFindMany },
     client: { findFirst: clientFindFirst, create: clientCreate },
     $executeRaw: executeRaw,
   };
@@ -339,7 +346,7 @@ describe('PublicService.book', () => {
     const h = makeDb();
     await h.service.book(SLUG, { startsAt: freeSlot(), ...BOOK_INPUT });
 
-    expect(h.executeRaw).toHaveBeenCalledTimes(2);
+    expect(h.executeRaw).toHaveBeenCalledTimes(3);
     expect(h.executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
       h.sessionFindMany.mock.invocationCallOrder[0],
     );
@@ -390,6 +397,29 @@ describe('PublicService.book', () => {
     expect(h.sessionCreate.mock.calls[0][0].data.priceAgorot).toBe(0);
   });
 
+  it('uses an available package for a returning client', async () => {
+    const h = makeDb({
+      clients: [
+        { id: 'client-7', phone: '0501234567', priceAgorot: 18_000 },
+      ],
+      packages: [
+        {
+          id: 'package-1',
+          totalSessions: 10,
+          purchasedAt: new Date('2026-09-01T00:00:00Z'),
+        },
+      ],
+    });
+
+    await h.service.book(SLUG, { startsAt: freeSlot(), ...BOOK_INPUT });
+
+    expect(h.sessionCreate.mock.calls[0][0].data).toMatchObject({
+      clientId: 'client-7',
+      packageId: 'package-1',
+      priceAgorot: 0,
+    });
+  });
+
   it('creates the session as pending with the offered duration', async () => {
     const h = makeDb();
     const booking = await h.service.book(SLUG, {
@@ -401,6 +431,7 @@ describe('PublicService.book', () => {
       coachId: 'coach-1',
       typeId: 'private',
       durationMin: 60,
+      courtCostAgorot: 7_500,
       status: 'pending',
       location: null,
     });

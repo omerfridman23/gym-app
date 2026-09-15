@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Post,
   Res,
@@ -10,7 +11,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { CookieOptions, Response } from 'express';
 import { PrismaService } from '../database/prisma.service.js';
-import { AUTH_COOKIE } from './auth.constants.js';
+import {
+  AUTH_COOKIE,
+  AUTH_MODE_HEADER,
+  AUTH_MODE_TOKEN,
+} from './auth.constants.js';
 import { AuthGuard } from './auth.guard.js';
 import { AuthService, type CoachSession } from './auth.service.js';
 import { CurrentCoach } from './current-coach.decorator.js';
@@ -51,11 +56,19 @@ export class AuthController {
   async verifyOtp(
     @Body() body: { phone: string; code: string },
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ coach: CoachSession }> {
+    @Headers(AUTH_MODE_HEADER) authMode?: string,
+  ): Promise<{ coach: CoachSession; token?: string }> {
     const { token, coach } = await this.authService.verifyOtp(
       body?.phone ?? '',
       body?.code ?? '',
     );
+
+    // The native client stores the token itself; issuing a cookie it can never
+    // send back would only leave a stale credential on the API origin.
+    if (authMode === AUTH_MODE_TOKEN) {
+      return { coach, token };
+    }
+
     res.cookie(AUTH_COOKIE, token, this.cookieOptions());
     return { coach };
   }

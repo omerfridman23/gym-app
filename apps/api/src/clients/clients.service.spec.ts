@@ -59,8 +59,14 @@ function makeHarness(rows: Row[] = [clientRow()]) {
       data: Record<string, unknown>;
     }) => clientRow({ ...data, id: where.id }),
   );
+  const sessionUpdateMany = vi.fn(async () => ({ count: 0 }));
+  const seriesUpdateMany = vi.fn(async () => ({ count: 0 }));
 
-  const tx = { client: { findMany, findFirst, create, update } };
+  const tx = {
+    client: { findMany, findFirst, create, update },
+    session: { updateMany: sessionUpdateMany },
+    sessionSeries: { updateMany: seriesUpdateMany },
+  };
   const withCoach = vi.fn((coachId: string, fn: (t: typeof tx) => unknown) => {
     scopedCoachId = coachId;
     return fn(tx);
@@ -72,6 +78,8 @@ function makeHarness(rows: Row[] = [clientRow()]) {
     findFirst,
     create,
     update,
+    sessionUpdateMany,
+    seriesUpdateMany,
     service: new ClientsService({ withCoach } as unknown as PrismaService),
   };
 }
@@ -595,6 +603,24 @@ describe('ClientsService.softDelete', () => {
     expect(where).toEqual({ id: 'client-1' });
     expect(Object.keys(data)).toEqual(['deletedAt']);
     expect(data.deletedAt).toBeInstanceOf(Date);
+  });
+
+  it('removes future sessions and stops recurring series for the client', async () => {
+    const h = makeHarness();
+    await h.service.softDelete(OWNER, 'client-1');
+
+    expect(h.sessionUpdateMany).toHaveBeenCalledWith({
+      where: {
+        clientId: 'client-1',
+        startsAt: { gte: expect.any(Date) },
+        deletedAt: null,
+      },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(h.seriesUpdateMany).toHaveBeenCalledWith({
+      where: { clientId: 'client-1', deletedAt: null },
+      data: { deletedAt: expect.any(Date) },
+    });
   });
 
   it('resolves without a value', async () => {

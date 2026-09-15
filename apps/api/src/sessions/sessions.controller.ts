@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -53,5 +55,15 @@ export class SessionsController {
     return {
       session: await this.sessionsService.update(coachId, id, body ?? {}),
     };
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async remove(
+    @CurrentCoach() coachId: string,
+    @Param('id') id: string,
+    @Query('scope') scope?: 'single' | 'future',
+  ): Promise<void> {
+    await this.sessionsService.remove(coachId, id, scope ?? 'single');
   }
 }

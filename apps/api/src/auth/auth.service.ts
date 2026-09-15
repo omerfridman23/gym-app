@@ -22,6 +22,9 @@ const OTP_TTL_MS = 10 * 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_REQUEST_WINDOW_MS = 15 * 60 * 1000;
 const OTP_REQUESTS_PER_WINDOW = 3;
+/** Israel Twilio Verify SMS ≈ $0.31; 1.2₪ is a conservative shekel estimate. */
+const DEFAULT_OTP_COST_NIS = 1.2;
+const DEFAULT_OTP_MONTHLY_CAP_NIS = 100;
 
 export interface CoachSession {
   id: string;
@@ -82,11 +85,41 @@ export class AuthService {
     return createHash('sha256').update(`${phone}:${code}`).digest('hex');
   }
 
+  private otpCostNis(): number {
+    const raw = Number(this.config.get<string>('OTP_COST_NIS'));
+    return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_OTP_COST_NIS;
+  }
+
+  private otpMonthlyCapNis(): number {
+    const raw = Number(this.config.get<string>('OTP_MONTHLY_CAP_NIS'));
+    return Number.isFinite(raw) && raw > 0
+      ? raw
+      : DEFAULT_OTP_MONTHLY_CAP_NIS;
+  }
+
+  private startOfUtcMonth(now = new Date()): Date {
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  }
+
   async requestOtp(rawPhone: string): Promise<void> {
     if (this.isDevLogin(rawPhone)) return;
 
     const phone = this.normalizePhone(rawPhone);
     this.logger.log(`OTP requested for ${maskPhone(phone)}`);
+
+    const monthStart = this.startOfUtcMonth();
+    const monthCount = await this.repo.countOtpRequestsSince(monthStart);
+    const nextSpend = (monthCount + 1) * this.otpCostNis();
+    const cap = this.otpMonthlyCapNis();
+    if (nextSpend > cap) {
+      this.logger.warn(
+        `OTP monthly cap reached (${monthCount} sends, cap ${cap}₪)`,
+      );
+      throw new HttpException(
+        'הגעתם לתקרת שליחת הקודים החודשית, נסו שוב בחודש הבא',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
 
     const since = new Date(Date.now() - OTP_REQUEST_WINDOW_MS);
     const recent = await this.repo.countRecentOtpRequests(phone, since);

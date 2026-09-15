@@ -7,6 +7,7 @@ const dataset = {
   settings: {
     name: 'דנה',
     defaultPriceAgorot: 12500,
+    defaultCourtCostAgorot: 5000,
     reminderHoursBefore: 24,
     cancellationPolicy: '',
     templates: { reminder: '', debt: '' },
@@ -40,6 +41,7 @@ const dataset = {
       time: '10:00',
       durationMin: 60,
       priceAgorot: 12500,
+      courtCostAgorot: 5000,
       status: 'done',
       paid: true,
       fromPackage: false,
@@ -80,7 +82,10 @@ vi.mock('@/lib/data', () => ({
   useData: () => ({
     ds: dataset,
     today: new Date(2026, 8, 7),
-    config: { terms: { clients: 'מתאמנים', sessions: 'אימונים' } },
+    config: {
+      requiresLocation: true,
+      terms: { clients: 'מתאמנים', sessions: 'אימונים' },
+    },
   }),
   totalOutstanding: () => 0,
 }))
@@ -110,6 +115,8 @@ describe('ReportsPage month navigation', () => {
 
     expect(screen.getAllByText('ספטמבר 2026').length).toBeGreaterThan(0)
     expect(screen.getAllByText('₪125').length).toBeGreaterThan(0)
+    expect(screen.getByText('₪75')).toBeTruthy()
+    expect(screen.getByText('מגרשים −₪50')).toBeTruthy()
     expect(screen.getByText('ספטמבר')).toBeTruthy()
     expect(screen.queryByText('אוגוסט')).toBeNull()
   })

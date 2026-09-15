@@ -11,6 +11,7 @@ export interface UpdateCoachInput {
   name?: string;
   vertical?: 'padel' | 'fitness';
   defaultPriceAgorot?: number;
+  defaultCourtCostAgorot?: number;
   reminderHoursBefore?: number;
   cancellationPolicy?: string;
   templates?: { reminder?: string; debt?: string };
@@ -27,6 +28,7 @@ export interface CoachProfile {
   name: string;
   vertical: 'padel' | 'fitness' | null;
   defaultPriceAgorot: number;
+  defaultCourtCostAgorot: number;
   reminderHoursBefore: number;
   cancellationPolicy: string;
   templates: { reminder?: string; debt?: string };
@@ -114,6 +116,7 @@ export function toProfile(coach: Coach): CoachProfile {
     name: coach.name,
     vertical: coach.vertical,
     defaultPriceAgorot: coach.defaultPriceAgorot,
+    defaultCourtCostAgorot: coach.defaultCourtCostAgorot ?? 0,
     reminderHoursBefore: coach.reminderHoursBefore,
     cancellationPolicy: coach.cancellationPolicy,
     templates,
@@ -199,6 +202,12 @@ export class CoachesService {
             ...(input.vertical !== undefined && { vertical: input.vertical }),
             ...(input.defaultPriceAgorot !== undefined && {
               defaultPriceAgorot: sanitizeInt(input.defaultPriceAgorot, 0),
+            }),
+            ...(input.defaultCourtCostAgorot !== undefined && {
+              defaultCourtCostAgorot: sanitizeInt(
+                input.defaultCourtCostAgorot,
+                0,
+              ),
             }),
             ...(input.reminderHoursBefore !== undefined && {
               reminderHoursBefore: sanitizeInt(input.reminderHoursBefore, 1),

@@ -52,6 +52,7 @@ model Coach {
   name                String    @default("")
   vertical            Vertical?
   defaultPriceAgorot  Int       @default(0) @map("default_price_agorot")
+  defaultCourtCostAgorot Int    @default(0) @map("default_court_cost_agorot")
   reminderHoursBefore Int       @default(24) @map("reminder_hours_before")
   cancellationPolicy  String    @default("") @map("cancellation_policy")
   templates           Json      @default("{}")
@@ -110,6 +111,7 @@ model SessionSeries {
   durationMin Int       @map("duration_min")
   location    String?
   priceAgorot Int       @map("price_agorot")
+  courtCostAgorot Int    @default(0) @map("court_cost_agorot")
   startsOn    DateTime  @map("starts_on") @db.Date
   endsOn      DateTime? @map("ends_on") @db.Date
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -133,6 +135,7 @@ model Session {
   durationMin      Int           @map("duration_min")
   location         String?
   priceAgorot      Int           @map("price_agorot") // 0 when covered by a package
+  courtCostAgorot  Int           @default(0) @map("court_cost_agorot")
   status           SessionStatus @default(pending)
   paid             Boolean       @default(false)
   packageId        String?       @map("package_id") @db.Uuid

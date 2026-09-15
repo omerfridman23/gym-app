@@ -16,6 +16,13 @@ export class AuthRepository {
     });
   }
 
+  /** Every OTP row is a billed Twilio send, including unused / expired codes. */
+  countOtpRequestsSince(since: Date): Promise<number> {
+    return this.db.otpCode.count({
+      where: { createdAt: { gte: since } },
+    });
+  }
+
   async createOtp(
     phone: string,
     codeHash: string,

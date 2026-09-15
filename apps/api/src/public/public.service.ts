@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaAdminService } from '../database/prisma-admin.service.js';
+import { allocatePackageIds } from '../packages/package-allocation.js';
 import {
   addDaysToIsoDate,
   israelWallClockToUtc,
@@ -493,6 +494,12 @@ export class PublicService {
         });
       }
 
+      const [packageId] = await allocatePackageIds(
+        tx,
+        coach.id,
+        client.id,
+        1,
+      );
       const session = await tx.session.create({
         data: {
           coachId: coach.id,
@@ -501,7 +508,9 @@ export class PublicService {
           startsAt,
           durationMin,
           location: null,
-          priceAgorot: client.priceAgorot,
+          priceAgorot: packageId ? 0 : client.priceAgorot,
+          courtCostAgorot: coach.defaultCourtCostAgorot ?? 0,
+          ...(packageId && { packageId }),
           status: 'pending',
         },
       });

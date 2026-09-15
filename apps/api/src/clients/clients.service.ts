@@ -120,9 +120,22 @@ export class ClientsService {
         where: { id: clientId, deletedAt: null },
       });
       if (!existing) throw new NotFoundException();
+      const deletedAt = new Date();
+      await tx.session.updateMany({
+        where: {
+          clientId,
+          startsAt: { gte: deletedAt },
+          deletedAt: null,
+        },
+        data: { deletedAt },
+      });
+      await tx.sessionSeries.updateMany({
+        where: { clientId, deletedAt: null },
+        data: { deletedAt },
+      });
       await tx.client.update({
         where: { id: clientId },
-        data: { deletedAt: new Date() },
+        data: { deletedAt },
       });
     });
   }

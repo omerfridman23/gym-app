@@ -23,6 +23,7 @@ vi.mock('@/lib/data', () => ({
       settings: {
         name: 'דנה',
         defaultPriceAgorot: 12500,
+        defaultCourtCostAgorot: 7500,
         reminderHoursBefore: 24,
         cancellationPolicy: '',
         templates: { reminder: 'תזכורת', debt: 'חוב' },
@@ -51,6 +52,38 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('SettingsPage public booking controls', () => {
+  it('updates the default session price in whole agorot', async () => {
+    render(<SettingsPage />)
+    const price = screen.getByRole('spinbutton', {
+      name: 'מחיר ברירת מחדל בשקלים',
+    })
+
+    fireEvent.change(price, { target: { value: '180' } })
+    fireEvent.blur(price)
+
+    await waitFor(() =>
+      expect(mocks.saveSettings).toHaveBeenCalledWith({
+        defaultPriceAgorot: 18000,
+      }),
+    )
+  })
+
+  it('updates the default court cost for padel coaches', async () => {
+    render(<SettingsPage />)
+    const cost = screen.getByRole('spinbutton', {
+      name: 'עלות מגרש ברירת מחדל בשקלים',
+    })
+
+    fireEvent.change(cost, { target: { value: '90' } })
+    fireEvent.blur(cost)
+
+    await waitFor(() =>
+      expect(mocks.saveSettings).toHaveBeenCalledWith({
+        defaultCourtCostAgorot: 9000,
+      }),
+    )
+  })
+
   it('creates the booking link automatically with one switch', async () => {
     render(<SettingsPage />)
 

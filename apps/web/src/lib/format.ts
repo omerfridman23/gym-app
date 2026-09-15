@@ -63,6 +63,12 @@ export function formatShekel(agorot: number): string {
   return `₪${shekels.toLocaleString('en-US')}`
 }
 
+export function formatSignedShekel(agorot: number): string {
+  return agorot < 0
+    ? `-${formatShekel(Math.abs(agorot))}`
+    : formatShekel(agorot)
+}
+
 /** Add minutes to a "HH:MM" clock string, returns "HH:MM" */
 export function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number)

@@ -30,6 +30,14 @@ describe('AuthRepository', () => {
     } as unknown as PrismaAdminService);
   });
 
+  it('counts every OTP in the month for the spend cap, not per phone', async () => {
+    const since = new Date('2026-09-01T00:00:00.000Z');
+    await expect(repo.countOtpRequestsSince(since)).resolves.toBe(2);
+    expect(otpCount).toHaveBeenCalledWith({
+      where: { createdAt: { gte: since } },
+    });
+  });
+
   it('counts requests for the exact normalized phone and inclusive window', async () => {
     const since = new Date('2026-09-06T10:00:00.000Z');
     await expect(

@@ -53,9 +53,11 @@ function sessionRow(overrides: Record<string, unknown> = {}) {
     durationMin: 60,
     location: null,
     priceAgorot: 18_000,
+    courtCostAgorot: 0,
     status: 'pending',
     paid: false,
     packageId: null,
+    confirmToken: 'confirm-token-1',
     reminderSent: false,
     reminderAnswered: false,
     attendance: null,
@@ -76,10 +78,21 @@ function makeHarness(
   rows: {
     clients?: ReturnType<typeof clientRow>[];
     sessions?: ReturnType<typeof sessionRow>[];
+    packages?: {
+      id: string;
+      coachId: string;
+      clientId: string;
+      totalSessions: number;
+      purchasedAt: Date;
+      deletedAt: Date | null;
+    }[];
+    packageUsage?: { packageId: string; _count: { _all: number } }[];
+    defaultCourtCostAgorot?: number;
   } = {},
 ) {
   const clients = rows.clients ?? [clientRow()];
   const sessions = rows.sessions ?? [sessionRow()];
+  const packages = rows.packages ?? [];
   let scopedCoachId = '';
 
   const visible = <
@@ -106,6 +119,11 @@ function makeHarness(
       where?.status ? [] : visible(sessions, where),
   );
   const executeRaw = vi.fn(async () => 1);
+  const coachFindFirst = vi.fn(async () => ({
+    defaultCourtCostAgorot: rows.defaultCourtCostAgorot ?? 0,
+  }));
+  const packageFindMany = vi.fn(async () => packages);
+  const sessionGroupBy = vi.fn(async () => rows.packageUsage ?? []);
 
   let created = 0;
   const sessionCreate = vi.fn(
@@ -113,6 +131,10 @@ function makeHarness(
       created += 1;
       return sessionRow({ ...data, id: `created-${created}` });
     },
+  );
+  const sessionCreateManyAndReturn = vi.fn(
+    async ({ data }: { data: Record<string, unknown>[] }) =>
+      Promise.all(data.map((item) => sessionCreate({ data: item }))),
   );
   const sessionUpdate = vi.fn(
     async ({
@@ -123,23 +145,33 @@ function makeHarness(
       data: Record<string, unknown>;
     }) => sessionRow({ ...data, id: where.id }),
   );
+  const sessionUpdateMany = vi.fn(async () => ({ count: 1 }));
   const seriesCreate = vi.fn(
     async ({ data }: { data: Record<string, unknown> }) => ({
       id: 'series-1',
       ...data,
     }),
   );
+  const seriesUpdate = vi.fn(async ({ data }) => ({
+    id: 'series-1',
+    ...data,
+  }));
 
   const tx = {
     $executeRaw: executeRaw,
+    coach: { findFirst: coachFindFirst },
     client: { findFirst: clientFindFirst },
     session: {
       findFirst: sessionFindFirst,
       findMany: sessionFindMany,
       create: sessionCreate,
+      createManyAndReturn: sessionCreateManyAndReturn,
       update: sessionUpdate,
+      updateMany: sessionUpdateMany,
+      groupBy: sessionGroupBy,
     },
-    sessionSeries: { create: seriesCreate },
+    package: { findMany: packageFindMany },
+    sessionSeries: { create: seriesCreate, update: seriesUpdate },
   };
   const withCoach = vi.fn((coachId: string, fn: (t: typeof tx) => unknown) => {
     scopedCoachId = coachId;
@@ -151,10 +183,14 @@ function makeHarness(
     clientFindFirst,
     sessionFindFirst,
     sessionFindMany,
+    packageFindMany,
+    sessionGroupBy,
     executeRaw,
     sessionCreate,
     sessionUpdate,
+    sessionUpdateMany,
     seriesCreate,
+    seriesUpdate,
     service: new SessionsService({ withCoach } as unknown as PrismaService),
   };
 }
@@ -474,6 +510,7 @@ describe('SessionsService.create', () => {
       expect(Object.keys(dataSentToCreate(h)).sort()).toEqual([
         'clientId',
         'coachId',
+        'courtCostAgorot',
         'durationMin',
         'location',
         'priceAgorot',
@@ -491,6 +528,23 @@ describe('SessionsService.create', () => {
       expect(h.sessionCreate).toHaveBeenCalledTimes(1);
       expect(h.seriesCreate).not.toHaveBeenCalled();
       expect(result).toHaveLength(1);
+    });
+
+    it('copies the coach default court cost into the session snapshot', async () => {
+      const h = makeHarness({ defaultCourtCostAgorot: 7500 });
+      await h.service.create(OWNER, valid);
+
+      expect(dataSentToCreate(h).courtCostAgorot).toBe(7500);
+    });
+
+    it('allows a one-off court cost override', async () => {
+      const h = makeHarness({ defaultCourtCostAgorot: 7500 });
+      await h.service.create(OWNER, {
+        ...valid,
+        courtCostAgorot: 9000,
+      });
+
+      expect(dataSentToCreate(h).courtCostAgorot).toBe(9000);
     });
 
     it('leaves the session outside any series', async () => {
@@ -513,6 +567,49 @@ describe('SessionsService.create', () => {
         expect(h.sessionCreate).toHaveBeenCalledTimes(1);
       },
     );
+
+    it('uses an available package punch and zeroes the session price', async () => {
+      const h = makeHarness({
+        packages: [
+          {
+            id: 'package-1',
+            coachId: OWNER,
+            clientId: 'client-1',
+            totalSessions: 10,
+            purchasedAt: new Date('2026-08-01T00:00:00Z'),
+            deletedAt: null,
+          },
+        ],
+      });
+
+      await h.service.create(OWNER, { ...valid, priceAgorot: 18000 });
+
+      expect(dataSentToCreate(h)).toMatchObject({
+        packageId: 'package-1',
+        priceAgorot: 0,
+      });
+    });
+
+    it('charges normally when the package has no punches left', async () => {
+      const h = makeHarness({
+        packages: [
+          {
+            id: 'package-1',
+            coachId: OWNER,
+            clientId: 'client-1',
+            totalSessions: 1,
+            purchasedAt: new Date('2026-08-01T00:00:00Z'),
+            deletedAt: null,
+          },
+        ],
+        packageUsage: [{ packageId: 'package-1', _count: { _all: 1 } }],
+      });
+
+      await h.service.create(OWNER, { ...valid, priceAgorot: 18000 });
+
+      expect(dataSentToCreate(h).priceAgorot).toBe(18000);
+      expect(dataSentToCreate(h)).not.toHaveProperty('packageId');
+    });
   });
 
   describe('weekly series', () => {
@@ -987,7 +1084,7 @@ describe('SessionsService.update', () => {
     it('sends only the supplied fields', async () => {
       const h = makeHarness();
       await h.service.update(OWNER, 'session-1', { paid: true });
-      expect(Object.keys(dataSentToUpdate(h))).toEqual(['paid']);
+      expect(dataSentToUpdate(h)).toEqual({ paid: true });
     });
 
     it('sends nothing for an empty patch', async () => {
@@ -1026,7 +1123,7 @@ describe('SessionsService.update', () => {
       expect(dataSentToUpdate(h).cancelReason).toBeNull();
     });
 
-    it('ignores unknown keys rather than forwarding them to prisma', async () => {
+    it('accepts editable prices while ignoring protected keys', async () => {
       const h = makeHarness();
       await h.service.update(OWNER, 'session-1', {
         paid: true,
@@ -1035,7 +1132,15 @@ describe('SessionsService.update', () => {
         deletedAt: null,
       } as never);
 
-      expect(Object.keys(dataSentToUpdate(h))).toEqual(['paid']);
+      expect(dataSentToUpdate(h)).toMatchObject({
+        priceAgorot: 1,
+        paid: true,
+        reminderSent: false,
+        reminderAttempts: 0,
+        reminderLastAttemptAt: null,
+      });
+      expect(dataSentToUpdate(h)).not.toHaveProperty('clientId');
+      expect(dataSentToUpdate(h)).not.toHaveProperty('deletedAt');
     });
   });
 
@@ -1065,6 +1170,109 @@ describe('SessionsService.update', () => {
       await h.service.update(OWNER, 'session-1', { status: 'cancelled' });
 
       expect(dataSentToUpdate(h)).not.toHaveProperty('reminderAnswered');
+    });
+  });
+
+  describe('rescheduling', () => {
+    it('updates time, duration and price while preserving protected fields', async () => {
+      const h = makeHarness();
+      const startsAt = '2026-09-07T16:00:00.000Z';
+
+      const updated = await h.service.update(OWNER, 'session-1', {
+        startsAt,
+        durationMin: 90,
+        priceAgorot: 22000,
+      });
+
+      expect(h.executeRaw).toHaveBeenCalled();
+      expect(dataSentToUpdate(h)).toMatchObject({
+        startsAt: new Date(startsAt),
+        durationMin: 90,
+        priceAgorot: 22000,
+        reminderSent: false,
+      });
+      expect(updated.confirmToken).toBe(sessionRow().confirmToken);
+    });
+
+    it('rejects a new time that overlaps another active session', async () => {
+      const h = makeHarness();
+      const startsAt = new Date('2026-09-07T16:00:00.000Z');
+      h.sessionFindMany.mockResolvedValueOnce([
+        { startsAt, durationMin: 60 },
+      ]);
+
+      await expect(
+        h.service.update(OWNER, 'session-1', {
+          startsAt: startsAt.toISOString(),
+        }),
+      ).rejects.toThrow('כבר קיים אימון בזמן הזה');
+      expect(h.sessionUpdate).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [{ startsAt: 'not-a-date' }],
+      [{ durationMin: 5 }],
+      [{ durationMin: 2000 }],
+      [{ priceAgorot: -1 }],
+    ])('rejects invalid editable values: %o', async (patch) => {
+      const h = makeHarness();
+      await expect(
+        h.service.update(OWNER, 'session-1', patch),
+      ).rejects.toThrow(BadRequestException);
+      expect(h.sessionUpdate).not.toHaveBeenCalled();
+    });
+
+    it('does not rewrite completed session history', async () => {
+      const h = makeHarness({
+        sessions: [sessionRow({ status: 'done' })],
+      });
+      await expect(
+        h.service.update(OWNER, 'session-1', {
+          startsAt: '2026-09-08T16:00:00Z',
+        }),
+      ).rejects.toThrow('לא ניתן לערוך אימון שהושלם');
+    });
+
+    it('does not turn a package session into a priced session', async () => {
+      const h = makeHarness({
+        sessions: [sessionRow({ packageId: 'package-1', priceAgorot: 0 })],
+      });
+      await expect(
+        h.service.update(OWNER, 'session-1', { priceAgorot: 18000 }),
+      ).rejects.toThrow('לא ניתן לשנות מחיר של אימון מכרטיסייה');
+    });
+  });
+});
+
+describe('SessionsService.remove', () => {
+  it('soft-deletes only one occurrence by default', async () => {
+    const h = makeHarness();
+    await h.service.remove(OWNER, 'session-1');
+
+    expect(h.sessionUpdate).toHaveBeenCalledWith({
+      where: { id: 'session-1' },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(h.sessionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('soft-deletes this and future occurrences and closes the series', async () => {
+    const h = makeHarness({
+      sessions: [sessionRow({ seriesId: 'series-1' })],
+    });
+    await h.service.remove(OWNER, 'session-1', 'future');
+
+    expect(h.sessionUpdateMany).toHaveBeenCalledWith({
+      where: {
+        seriesId: 'series-1',
+        startsAt: { gte: sessionRow().startsAt },
+        deletedAt: null,
+      },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(h.seriesUpdate).toHaveBeenCalledWith({
+      where: { id: 'series-1' },
+      data: { endsOn: expect.any(Date) },
     });
   });
 });

@@ -2,7 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ChevronRight, MessageCircle, Phone } from 'lucide-react'
+import {
+  ChevronRight,
+  MessageCircle,
+  Pencil,
+  Phone,
+  TicketPlus,
+  Trash2,
+} from 'lucide-react'
 import { InitialsAvatar } from '@/components/initials-avatar'
 import { StatusPill } from '@/components/status-pill'
 import { BottomSheet } from '@/components/bottom-sheet'
@@ -29,6 +36,18 @@ export default function ClientDetailPage() {
   const { ds, config, today, actions } = useData()
   const [payOpen, setPayOpen] = useState(false)
   const [method, setMethod] = useState<PaymentMethod>('bit')
+  const [editOpen, setEditOpen] = useState(false)
+  const [packageOpen, setPackageOpen] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editPrice, setEditPrice] = useState('')
+  const [editFields, setEditFields] = useState<Record<string, string>>({})
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [packageSize, setPackageSize] = useState('10')
+  const [packagePrice, setPackagePrice] = useState('')
+  const [packageMethod, setPackageMethod] = useState<PaymentMethod>('bit')
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const client = clientById(ds, id)
 
@@ -99,7 +118,7 @@ export default function ClientDetailPage() {
               ) : null,
             )}
           </div>
-          <div className="mt-2 flex w-full gap-2">
+          <div className="mt-2 grid w-full grid-cols-3 gap-2">
             <a
               href={telLink(client.phone)}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-surface-2 py-2.5 text-sm font-bold text-ink transition active:scale-[0.98]"
@@ -116,6 +135,22 @@ export default function ClientDetailPage() {
               <MessageCircle className="size-4" />
               וואטסאפ
             </a>
+            <button
+              type="button"
+              onClick={() => {
+                setEditName(client.name)
+                setEditPhone(client.phone)
+                setEditPrice(String(client.priceAgorot / 100))
+                setEditFields(client.fields)
+                setDeleteConfirm(false)
+                setFormError(null)
+                setEditOpen(true)
+              }}
+              className="flex items-center justify-center gap-2 rounded-xl bg-surface-2 py-2.5 text-sm font-bold text-ink transition active:scale-[0.98]"
+            >
+              <Pencil className="size-4" />
+              עריכה
+            </button>
           </div>
         </section>
 
@@ -136,6 +171,20 @@ export default function ClientDetailPage() {
             </div>
           </section>
         ) : null}
+        <button
+          type="button"
+          onClick={() => {
+            setPackageSize('10')
+            setPackagePrice('')
+            setPackageMethod('bit')
+            setFormError(null)
+            setPackageOpen(true)
+          }}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-court-tint px-4 py-3.5 text-sm font-bold text-court ring-1 ring-court/20 transition active:scale-[0.99]"
+        >
+          <TicketPlus className="size-5" />
+          מכירת כרטיסייה
+        </button>
 
         {/* Debt */}
         {owed > 0 ? (
@@ -228,7 +277,215 @@ export default function ClientDetailPage() {
           </button>
         </div>
       </BottomSheet>
+
+      <BottomSheet
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title={`עריכת ${config.terms.client}`}
+      >
+        <div className="flex flex-col gap-4">
+          <EditField label="שם מלא">
+            <input
+              value={editName}
+              onChange={(event) => setEditName(event.target.value)}
+              className="w-full rounded-xl bg-surface-2 px-3 py-3 text-ink outline-none ring-1 ring-line focus:ring-2 focus:ring-court"
+            />
+          </EditField>
+          <EditField label="טלפון">
+            <input
+              value={editPhone}
+              onChange={(event) => setEditPhone(event.target.value)}
+              inputMode="tel"
+              dir="ltr"
+              className="ltr-nums w-full rounded-xl bg-surface-2 px-3 py-3 text-left text-ink outline-none ring-1 ring-line focus:ring-2 focus:ring-court"
+            />
+          </EditField>
+          {config.clientFields.map((field) => (
+            <EditField key={field.key} label={field.label}>
+              <input
+                value={editFields[field.key] ?? ''}
+                onChange={(event) =>
+                  setEditFields((current) => ({
+                    ...current,
+                    [field.key]: event.target.value,
+                  }))
+                }
+                className="w-full rounded-xl bg-surface-2 px-3 py-3 text-ink outline-none ring-1 ring-line focus:ring-2 focus:ring-court"
+              />
+            </EditField>
+          ))}
+          <EditField label="מחיר לאימון (₪)">
+            <input
+              type="number"
+              min={0}
+              value={editPrice}
+              onChange={(event) => setEditPrice(event.target.value)}
+              dir="ltr"
+              className="ltr-nums w-full rounded-xl bg-surface-2 px-3 py-3 text-left text-ink outline-none ring-1 ring-line focus:ring-2 focus:ring-court"
+            />
+          </EditField>
+          {formError ? (
+            <p className="text-sm font-bold text-owed" role="alert">
+              {formError}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            disabled={saving || !editName.trim() || !editPhone.trim()}
+            onClick={() => {
+              setSaving(true)
+              setFormError(null)
+              void actions
+                .updateClient(client.id, {
+                  name: editName.trim(),
+                  phone: editPhone.trim(),
+                  fields: editFields,
+                  priceAgorot: Math.max(0, Math.round(Number(editPrice) * 100)),
+                })
+                .then(() => setEditOpen(false))
+                .catch(() => setFormError('השמירה נכשלה, נסו שוב'))
+                .finally(() => setSaving(false))
+            }}
+            className="w-full rounded-xl bg-court py-3.5 font-bold text-white disabled:opacity-40"
+          >
+            {saving ? 'שומרים…' : 'שמור שינויים'}
+          </button>
+          {deleteConfirm ? (
+            <div className="rounded-xl bg-owed-tint p-3">
+              <p className="text-sm font-bold text-owed">
+                למחוק את {client.name}? היסטוריית האימונים תישמר.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(false)}
+                  className="flex-1 rounded-xl bg-surface py-2.5 text-sm font-bold text-ink"
+                >
+                  חזרה
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    setSaving(true)
+                    void actions
+                      .deleteClient(client.id)
+                      .then(() => router.push('/clients'))
+                      .catch(() => setFormError('המחיקה נכשלה, נסו שוב'))
+                      .finally(() => setSaving(false))
+                  }}
+                  className="flex-1 rounded-xl bg-owed py-2.5 text-sm font-bold text-paper disabled:opacity-40"
+                >
+                  כן, למחוק
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setDeleteConfirm(true)}
+              className="flex items-center justify-center gap-2 py-2 text-sm font-bold text-owed"
+            >
+              <Trash2 className="size-4" />
+              מחיקת מתאמן
+            </button>
+          )}
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={packageOpen}
+        onClose={() => setPackageOpen(false)}
+        title={`מכירת כרטיסייה · ${firstName}`}
+      >
+        <div className="flex flex-col gap-4">
+          <EditField label="מספר אימונים">
+            <input
+              type="number"
+              min={1}
+              max={1000}
+              value={packageSize}
+              onChange={(event) => setPackageSize(event.target.value)}
+              className="ltr-nums w-full rounded-xl bg-surface-2 px-3 py-3 text-center text-ink outline-none ring-1 ring-line focus:ring-2 focus:ring-court"
+            />
+          </EditField>
+          <EditField label="סכום ששולם (₪)">
+            <input
+              type="number"
+              min={1}
+              value={packagePrice}
+              onChange={(event) => setPackagePrice(event.target.value)}
+              className="ltr-nums w-full rounded-xl bg-surface-2 px-3 py-3 text-center text-ink outline-none ring-1 ring-line focus:ring-2 focus:ring-court"
+            />
+          </EditField>
+          <div>
+            <p className="mb-2 text-sm font-bold text-ink">אמצעי תשלום</p>
+            <div className="grid grid-cols-2 gap-2">
+              {PAYMENT_METHODS.map((paymentMethod) => (
+                <button
+                  key={paymentMethod.id}
+                  type="button"
+                  aria-pressed={packageMethod === paymentMethod.id}
+                  onClick={() => setPackageMethod(paymentMethod.id)}
+                  className={`rounded-xl py-3 text-sm font-bold ring-1 ${
+                    packageMethod === paymentMethod.id
+                      ? 'bg-court-tint text-court ring-court'
+                      : 'bg-surface text-muted ring-line'
+                  }`}
+                >
+                  {paymentMethod.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {formError ? (
+            <p className="text-sm font-bold text-owed" role="alert">
+              {formError}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            disabled={
+              saving ||
+              Number(packageSize) <= 0 ||
+              Number(packagePrice) <= 0
+            }
+            onClick={() => {
+              setSaving(true)
+              setFormError(null)
+              void actions
+                .sellPackage(
+                  client.id,
+                  Math.trunc(Number(packageSize)),
+                  Math.round(Number(packagePrice) * 100),
+                  packageMethod,
+                )
+                .then(() => setPackageOpen(false))
+                .catch(() => setFormError('המכירה נכשלה, נסו שוב'))
+                .finally(() => setSaving(false))
+            }}
+            className="w-full rounded-xl bg-court-gradient py-3.5 font-bold text-white disabled:opacity-40"
+          >
+            {saving ? 'שומרים…' : 'אשר מכירת כרטיסייה'}
+          </button>
+        </div>
+      </BottomSheet>
     </>
+  )
+}
+
+function EditField({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <label>
+      <span className="mb-1.5 block text-sm font-bold text-ink">{label}</span>
+      {children}
+    </label>
   )
 }
 

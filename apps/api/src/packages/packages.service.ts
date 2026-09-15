@@ -5,16 +5,19 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Package } from '../generated/prisma/client.js';
+import { lockClientPackages } from './package-allocation.js';
 
 export interface CreatePackageInput {
   clientId: string;
   totalSessions: number;
   purchasedAgorot: number;
+  paymentMethod?: 'cash' | 'bit' | 'transfer' | 'card';
 }
 
 export type PackageWithRemaining = Package & { remaining: number };
 
 const PG_INT4_MAX = 2_147_483_647;
+const PAYMENT_METHODS = new Set(['cash', 'bit', 'transfer', 'card']);
 
 @Injectable()
 export class PackagesService {
@@ -58,12 +61,19 @@ export class PackagesService {
     if (Number.isNaN(purchased) || purchased < 0 || purchased > PG_INT4_MAX) {
       throw new BadRequestException('סכום לא תקין');
     }
+    if (
+      input.paymentMethod !== undefined &&
+      !PAYMENT_METHODS.has(input.paymentMethod)
+    ) {
+      throw new BadRequestException('אמצעי תשלום לא תקין');
+    }
 
     return this.prisma.withCoach(coachId, async (tx) => {
       const client = await tx.client.findFirst({
         where: { id: input.clientId, deletedAt: null },
       });
       if (!client) throw new NotFoundException('מתאמן לא נמצא');
+      await lockClientPackages(tx, coachId, client.id);
 
       const created = await tx.package.create({
         data: {
@@ -73,6 +83,16 @@ export class PackagesService {
           purchasedAgorot: purchased,
         },
       });
+      if (input.paymentMethod && purchased > 0) {
+        await tx.payment.create({
+          data: {
+            coachId,
+            clientId: client.id,
+            amountAgorot: purchased,
+            method: input.paymentMethod,
+          },
+        });
+      }
       return { ...created, remaining: total };
     });
   }

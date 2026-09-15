@@ -25,6 +25,7 @@ export interface Client {
 export interface Session {
   id: string
   clientId: string
+  seriesId?: string
   /** Public one-time token for the /confirm/:token client link. */
   confirmToken?: string
   typeId: string
@@ -33,6 +34,7 @@ export interface Session {
   durationMin: number
   location?: string
   priceAgorot: number
+  courtCostAgorot?: number
   status: SessionStatus
   paid: boolean
   fromPackage: boolean
@@ -62,6 +64,7 @@ export interface Payment {
 export interface CoachSettings {
   name: string
   defaultPriceAgorot: number
+  defaultCourtCostAgorot: number
   reminderHoursBefore: number
   cancellationPolicy: string
   templates: { reminder: string; debt: string }

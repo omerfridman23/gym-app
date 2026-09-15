@@ -1,11 +1,17 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { SMS_PROVIDER, type SmsProvider } from '../auth/sms/sms-provider.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma, Session } from '../generated/prisma/client.js';
+import { allocatePackageIds } from '../packages/package-allocation.js';
+import { toE164Israel } from '../reminders/reminders.template.js';
 
 export interface CreateSessionInput {
   clientId: string;
@@ -14,11 +20,18 @@ export interface CreateSessionInput {
   durationMin?: number;
   location?: string | null;
   priceAgorot?: number;
+  courtCostAgorot?: number;
   /** Create a weekly series: this session plus the same slot for the following weeks. */
   repeatWeekly?: boolean;
 }
 
 export interface UpdateSessionInput {
+  startsAt?: string;
+  durationMin?: number;
+  location?: string | null;
+  priceAgorot?: number;
+  courtCostAgorot?: number;
+  scope?: 'single' | 'future';
   status?: 'pending' | 'confirmed' | 'cancelled' | 'done';
   cancelReason?: string | null;
   paid?: boolean;
@@ -153,7 +166,12 @@ export function addDaysToIsoDate(iso: string, days: number): string {
 
 @Injectable()
 export class SessionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(SessionsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() @Inject(SMS_PROVIDER) private readonly sms?: SmsProvider,
+  ) {}
 
   // These are `async` so validation failures reject instead of throwing
   // synchronously out of a Promise-returning method.
@@ -199,12 +217,25 @@ export class SessionsService {
     );
     const location = input.location ? text(input.location) : null;
     const priceAgorot = money(input.priceAgorot);
+    const explicitCourtCost =
+      input.courtCostAgorot === undefined
+        ? null
+        : money(input.courtCostAgorot);
 
     return this.prisma.withCoach(coachId, async (tx) => {
       const client = await tx.client.findFirst({
         where: { id: input.clientId, deletedAt: null },
       });
       if (!client) throw new NotFoundException('מתאמן לא נמצא');
+      const courtCostAgorot =
+        explicitCourtCost ??
+        (
+          await tx.coach.findFirst({
+            where: { id: coachId, deletedAt: null },
+            select: { defaultCourtCostAgorot: true },
+          })
+        )?.defaultCourtCostAgorot ??
+        0;
 
       const base: Prisma.SessionUncheckedCreateInput = {
         coachId,
@@ -214,6 +245,7 @@ export class SessionsService {
         durationMin,
         location,
         priceAgorot,
+        courtCostAgorot,
       };
 
       if (!input.repeatWeekly) {
@@ -232,7 +264,21 @@ export class SessionsService {
         if (overlaps(startsAt, durationMin, busy)) {
           throw new ConflictException('כבר קיים אימון בזמן הזה');
         }
-        return [await tx.session.create({ data: base })];
+        const [packageId] = await allocatePackageIds(
+          tx,
+          coachId,
+          client.id,
+          1,
+        );
+        return [
+          await tx.session.create({
+            data: {
+              ...base,
+              ...(packageId && { packageId }),
+              priceAgorot: packageId ? 0 : priceAgorot,
+            },
+          }),
+        ];
       }
 
       const { weekday, timeLocal, dateLocal } = israelParts(startsAt);
@@ -279,6 +325,12 @@ export class SessionsService {
       ) {
         throw new ConflictException('אחד ממועדי הסדרה כבר תפוס');
       }
+      const packageIds = await allocatePackageIds(
+        tx,
+        coachId,
+        client.id,
+        occurrences.length,
+      );
 
       const series = await tx.sessionSeries.create({
         data: {
@@ -290,19 +342,26 @@ export class SessionsService {
           durationMin,
           location,
           priceAgorot,
+          courtCostAgorot,
           startsOn: new Date(`${dateLocal}T00:00:00Z`),
         },
       });
 
-      const created: Session[] = [];
-      for (const occurrence of occurrences) {
-        created.push(
-          await tx.session.create({
-            data: { ...base, seriesId: series.id, startsAt: occurrence },
-          }),
-        );
-      }
-      return created;
+      const created = await tx.session.createManyAndReturn({
+        data: occurrences.map((occurrence, index) => {
+          const packageId = packageIds[index];
+          return {
+            ...base,
+            seriesId: series.id,
+            startsAt: occurrence,
+            ...(packageId && { packageId }),
+            priceAgorot: packageId ? 0 : priceAgorot,
+          };
+        }),
+      });
+      return created.sort(
+        (left, right) => left.startsAt.getTime() - right.startsAt.getTime(),
+      );
     });
   }
 
@@ -311,6 +370,13 @@ export class SessionsService {
     sessionId: string,
     input: UpdateSessionInput,
   ): Promise<Session> {
+    if (
+      input.scope !== undefined &&
+      input.scope !== 'single' &&
+      input.scope !== 'future'
+    ) {
+      throw new BadRequestException('טווח העריכה לא תקין');
+    }
     if (input.status !== undefined && !SESSION_STATUSES.has(input.status)) {
       throw new BadRequestException('סטטוס לא תקין');
     }
@@ -322,68 +388,329 @@ export class SessionsService {
       throw new BadRequestException('נוכחות לא תקינה');
     }
 
-    return this.prisma.withCoach(coachId, async (tx) => {
+    const result = await this.prisma.withCoach(coachId, async (tx) => {
       const existing = await tx.session.findFirst({
         where: { id: sessionId, deletedAt: null },
       });
       if (!existing) throw new NotFoundException();
+      const scheduleRequested =
+        input.startsAt !== undefined ||
+        input.durationMin !== undefined ||
+        input.location !== undefined ||
+        input.priceAgorot !== undefined ||
+        input.courtCostAgorot !== undefined;
+      if (existing.status === 'done' && scheduleRequested) {
+        throw new BadRequestException('לא ניתן לערוך אימון שהושלם');
+      }
+
+      const startsAt =
+        input.startsAt !== undefined
+          ? new Date(input.startsAt)
+          : existing.startsAt;
+      if (Number.isNaN(startsAt.getTime())) {
+        throw new BadRequestException('מועד לא תקין');
+      }
+      const durationMin =
+        input.durationMin !== undefined
+          ? Math.trunc(Number(input.durationMin))
+          : existing.durationMin;
+      if (
+        !Number.isFinite(durationMin) ||
+        durationMin < 15 ||
+        durationMin > 24 * 60
+      ) {
+        throw new BadRequestException('משך האימון לא תקין');
+      }
+      const priceAgorot =
+        input.priceAgorot !== undefined
+          ? Math.trunc(Number(input.priceAgorot))
+          : existing.priceAgorot;
+      if (
+        !Number.isFinite(priceAgorot) ||
+        priceAgorot < 0 ||
+        priceAgorot > PG_INT4_MAX
+      ) {
+        throw new BadRequestException('מחיר לא תקין');
+      }
+      if (
+        existing.packageId &&
+        priceAgorot !== existing.priceAgorot
+      ) {
+        throw new BadRequestException(
+          'לא ניתן לשנות מחיר של אימון מכרטיסייה',
+        );
+      }
+      const location =
+        input.location !== undefined
+          ? input.location === null
+            ? null
+            : text(input.location)
+          : existing.location;
+      const courtCostAgorot =
+        input.courtCostAgorot !== undefined
+          ? Math.trunc(Number(input.courtCostAgorot))
+          : existing.courtCostAgorot;
+      if (
+        !Number.isFinite(courtCostAgorot) ||
+        courtCostAgorot < 0 ||
+        courtCostAgorot > PG_INT4_MAX
+      ) {
+        throw new BadRequestException('עלות המגרש לא תקינה');
+      }
+      const scheduleChanged =
+        startsAt.getTime() !== existing.startsAt.getTime() ||
+        durationMin !== existing.durationMin ||
+        priceAgorot !== existing.priceAgorot ||
+        courtCostAgorot !== existing.courtCostAgorot ||
+        location !== existing.location;
+      const selectedStatus = input.status ?? existing.status;
+
+      const selectedData: Prisma.SessionUncheckedUpdateInput = {
+        ...(input.startsAt !== undefined && { startsAt }),
+        ...(input.durationMin !== undefined && { durationMin }),
+        ...(input.location !== undefined && { location }),
+        ...(input.priceAgorot !== undefined && { priceAgorot }),
+        ...(input.courtCostAgorot !== undefined && { courtCostAgorot }),
+        ...(input.status !== undefined && { status: input.status }),
+        ...(input.cancelReason !== undefined && {
+          cancelReason:
+            input.cancelReason === null
+              ? null
+              : text(input.cancelReason, 500),
+        }),
+        ...(input.paid !== undefined && { paid: Boolean(input.paid) }),
+        ...(input.attendance !== undefined && {
+          attendance: input.attendance,
+        }),
+        ...(input.reminderSent !== undefined && {
+          reminderSent: Boolean(input.reminderSent),
+        }),
+        ...(input.reminderAnswered !== undefined && {
+          reminderAnswered: Boolean(input.reminderAnswered),
+        }),
+        ...(input.status === 'confirmed' && { reminderAnswered: true }),
+        ...(scheduleChanged && {
+          reminderSent: false,
+          reminderAttempts: 0,
+          reminderLastAttemptAt: null,
+        }),
+      };
 
       if (
-        input.status !== undefined &&
-        ACTIVE_SESSION_STATUSES.has(input.status) &&
-        !ACTIVE_SESSION_STATUSES.has(existing.status)
+        input.scope === 'future' &&
+        existing.seriesId &&
+        scheduleChanged
       ) {
-        await lockCoachDay(
-          tx,
-          coachId,
-          israelParts(existing.startsAt).dateLocal,
-        );
+        const future = await tx.session.findMany({
+          where: {
+            seriesId: existing.seriesId,
+            startsAt: { gte: existing.startsAt },
+            deletedAt: null,
+            status: { not: 'done' },
+          },
+          orderBy: { startsAt: 'asc' },
+        });
+        const anchor = israelParts(startsAt);
+        const originalAnchorDate = israelParts(existing.startsAt).dateLocal;
+        const planned = future.map((session) => {
+          const originalDate = israelParts(session.startsAt).dateLocal;
+          const daysFromAnchor = Math.round(
+            (new Date(`${originalDate}T00:00:00Z`).getTime() -
+              new Date(`${originalAnchorDate}T00:00:00Z`).getTime()) /
+              (24 * 60 * 60 * 1000),
+          );
+          return {
+            session,
+            startsAt:
+              session.id === existing.id
+                ? startsAt
+                : israelWallClockToUtc(
+                    addDaysToIsoDate(anchor.dateLocal, daysFromAnchor),
+                    anchor.timeLocal,
+                  ),
+          };
+        });
+        const dates = [
+          ...new Set(
+            planned.flatMap(({ session, startsAt: next }) => [
+              israelParts(session.startsAt).dateLocal,
+              israelParts(next).dateLocal,
+            ]),
+          ),
+        ].sort();
+        for (const date of dates) await lockCoachDay(tx, coachId, date);
+
+        const affectedIds = future.map((session) => session.id);
+        const first = planned[0]?.startsAt ?? startsAt;
+        const last = planned.at(-1)?.startsAt ?? startsAt;
         const busy = await tx.session.findMany({
           where: {
-            id: { not: existing.id },
+            id: { notIn: affectedIds },
             deletedAt: null,
             status: { in: ['pending', 'confirmed'] },
             startsAt: {
-              gte: new Date(
-                existing.startsAt.getTime() - 24 * 60 * MS_PER_MIN,
-              ),
-              lt: new Date(
-                existing.startsAt.getTime() +
-                  existing.durationMin * MS_PER_MIN,
-              ),
+              gte: new Date(first.getTime() - 24 * 60 * MS_PER_MIN),
+              lt: new Date(last.getTime() + durationMin * MS_PER_MIN),
             },
           },
           select: { startsAt: true, durationMin: true },
         });
-        if (overlaps(existing.startsAt, existing.durationMin, busy)) {
-          throw new ConflictException('כבר קיים אימון בזמן הזה');
+        if (
+          planned.some(
+            ({ session, startsAt: next }, index) =>
+              ACTIVE_SESSION_STATUSES.has(
+                index === 0 ? selectedStatus : session.status,
+              ) &&
+              overlaps(next, durationMin, busy),
+          )
+        ) {
+          throw new ConflictException('אחד ממועדי הסדרה כבר תפוס');
+        }
+
+        let selected: Session | null = null;
+        for (const [index, plannedSession] of planned.entries()) {
+          const updated = await tx.session.update({
+            where: { id: plannedSession.session.id },
+            data: {
+              startsAt: plannedSession.startsAt,
+              durationMin,
+              location,
+              priceAgorot,
+              courtCostAgorot,
+              reminderSent: false,
+              reminderAttempts: 0,
+              reminderLastAttemptAt: null,
+              ...(index === 0 ? selectedData : {}),
+            },
+          });
+          if (index === 0) selected = updated;
+        }
+        await tx.sessionSeries.update({
+          where: { id: existing.seriesId },
+          data: {
+            weekday: anchor.weekday,
+            timeLocal: anchor.timeLocal,
+            durationMin,
+            location,
+            priceAgorot,
+            courtCostAgorot,
+          },
+        });
+        return {
+          session: selected ?? existing,
+          notify: existing.status === 'confirmed',
+        };
+      }
+
+      if (
+        scheduleChanged ||
+        (ACTIVE_SESSION_STATUSES.has(selectedStatus) &&
+          !ACTIVE_SESSION_STATUSES.has(existing.status))
+      ) {
+        const dates = [
+          ...new Set([
+            israelParts(existing.startsAt).dateLocal,
+            israelParts(startsAt).dateLocal,
+          ]),
+        ].sort();
+        for (const date of dates) await lockCoachDay(tx, coachId, date);
+        if (ACTIVE_SESSION_STATUSES.has(selectedStatus)) {
+          const busy = await tx.session.findMany({
+            where: {
+              id: { not: existing.id },
+              deletedAt: null,
+              status: { in: ['pending', 'confirmed'] },
+              startsAt: {
+                gte: new Date(startsAt.getTime() - 24 * 60 * MS_PER_MIN),
+                lt: new Date(startsAt.getTime() + durationMin * MS_PER_MIN),
+              },
+            },
+            select: { startsAt: true, durationMin: true },
+          });
+          if (overlaps(startsAt, durationMin, busy)) {
+            throw new ConflictException('כבר קיים אימון בזמן הזה');
+          }
         }
       }
 
-      return tx.session.update({
+      const updated = await tx.session.update({
         where: { id: sessionId },
         data: {
-          ...(input.status !== undefined && { status: input.status }),
-          ...(input.cancelReason !== undefined && {
-            cancelReason:
-              input.cancelReason === null
-                ? null
-                : text(input.cancelReason, 500),
-          }),
-          ...(input.paid !== undefined && { paid: Boolean(input.paid) }),
-          ...(input.attendance !== undefined && {
-            attendance: input.attendance,
-          }),
-          ...(input.reminderSent !== undefined && {
-            reminderSent: Boolean(input.reminderSent),
-          }),
-          ...(input.reminderAnswered !== undefined && {
-            reminderAnswered: Boolean(input.reminderAnswered),
-          }),
-          // Confirming a session implies the client answered the reminder.
-          ...(input.status === 'confirmed' && { reminderAnswered: true }),
+          ...selectedData,
+          ...(scheduleChanged && existing.seriesId && { seriesId: null }),
         },
       });
+      return {
+        session: updated,
+        notify: scheduleChanged && existing.status === 'confirmed',
+      };
+    });
+
+    if (result.notify && this.sms) {
+      try {
+        const recipient = await this.prisma.withCoach(coachId, (tx) =>
+          tx.client.findFirst({
+            where: { id: result.session.clientId, deletedAt: null },
+            select: { phone: true },
+          }),
+        );
+        const phone = recipient ? toE164Israel(recipient.phone) : null;
+        if (phone) {
+          const parts = israelParts(result.session.startsAt);
+          await this.sms.sendText(
+            phone,
+            `האימון שלך עודכן ל-${parts.dateLocal} בשעה ${parts.timeLocal}.`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Session ${sessionId} updated, but client notification failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    return result.session;
+  }
+
+  async remove(
+    coachId: string,
+    sessionId: string,
+    scope: 'single' | 'future' = 'single',
+  ): Promise<void> {
+    if (scope !== 'single' && scope !== 'future') {
+      throw new BadRequestException('טווח המחיקה לא תקין');
+    }
+    await this.prisma.withCoach(coachId, async (tx) => {
+      const existing = await tx.session.findFirst({
+        where: { id: sessionId, deletedAt: null },
+      });
+      if (!existing) throw new NotFoundException();
+      const deletedAt = new Date();
+      if (scope === 'future' && existing.seriesId) {
+        await tx.session.updateMany({
+          where: {
+            seriesId: existing.seriesId,
+            startsAt: { gte: existing.startsAt },
+            deletedAt: null,
+          },
+          data: { deletedAt },
+        });
+        const previousDate = addDaysToIsoDate(
+          israelParts(existing.startsAt).dateLocal,
+          -1,
+        );
+        await tx.sessionSeries.update({
+          where: { id: existing.seriesId },
+          data: { endsOn: new Date(`${previousDate}T00:00:00Z`) },
+        });
+      } else {
+        await tx.session.update({
+          where: { id: existing.id },
+          data: { deletedAt },
+        });
+      }
     });
   }
 }

@@ -1,7 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../database/prisma.service.js';
-import { AUTH_COOKIE } from './auth.constants.js';
+import { AUTH_COOKIE, AUTH_MODE_TOKEN } from './auth.constants.js';
 import { AuthController } from './auth.controller.js';
 import type { AuthService } from './auth.service.js';
 
@@ -126,6 +126,55 @@ describe('AuthController', () => {
     h.findFirst.mockResolvedValue(null);
     await expect(h.controller.me('coach-1')).resolves.toEqual({ coach: null });
     expect(h.toSession).not.toHaveBeenCalled();
+  });
+
+  describe('token auth mode (native iOS build)', () => {
+    it('returns the token in the body and sets no cookie', async () => {
+      const h = makeController('production');
+
+      await expect(
+        h.controller.verifyOtp(
+          { phone: '0501234567', code: '123456' },
+          h.response as never,
+          AUTH_MODE_TOKEN,
+        ),
+      ).resolves.toEqual({ coach: h.coach, token: 'signed.jwt' });
+
+      expect(h.response.cookie).not.toHaveBeenCalled();
+    });
+
+    it.each(['', 'cookie', 'TOKEN', 'token ', undefined])(
+      'keeps the cookie flow for auth mode %j',
+      async (authMode) => {
+        const h = makeController('production');
+
+        await expect(
+          h.controller.verifyOtp(
+            { phone: '0501234567', code: '123456' },
+            h.response as never,
+            authMode,
+          ),
+        ).resolves.toEqual({ coach: h.coach });
+
+        expect(h.response.cookie).toHaveBeenCalledWith(
+          AUTH_COOKIE,
+          'signed.jwt',
+          expect.objectContaining({ httpOnly: true }),
+        );
+      },
+    );
+
+    it('does not leak the token when verification fails', async () => {
+      const h = makeController();
+      h.verifyOtp.mockRejectedValue(new Error('invalid'));
+      await expect(
+        h.controller.verifyOtp(
+          { phone: '0501234567', code: 'bad' },
+          h.response as never,
+          AUTH_MODE_TOKEN,
+        ),
+      ).rejects.toThrow('invalid');
+    });
   });
 
   it('clears the cookie with the same production security attributes', () => {

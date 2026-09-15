@@ -5,6 +5,7 @@ import { Search } from 'lucide-react'
 import { BottomSheet } from './bottom-sheet'
 import { InitialsAvatar } from './initials-avatar'
 import { useData } from '@/lib/data'
+import { formatSignedShekel } from '@/lib/format'
 import type { Session } from '@/lib/mock-data'
 import type { SessionType } from '@/lib/vertical-config'
 
@@ -29,6 +30,9 @@ export function NewSessionSheet({
   const [time, setTime] = useState(presetTime ?? '18:00')
   const [location, setLocation] = useState('')
   const [price, setPrice] = useState(String(ds.settings.defaultPriceAgorot / 100))
+  const [courtCost, setCourtCost] = useState(
+    String(ds.settings.defaultCourtCostAgorot / 100),
+  )
   const [repeat, setRepeat] = useState(false)
 
   // keep presets in sync when reopened for a specific slot
@@ -48,6 +52,7 @@ export function NewSessionSheet({
     setTypeId(config.sessionTypes[0].id)
     setLocation('')
     setPrice(String(ds.settings.defaultPriceAgorot / 100))
+    setCourtCost(String(ds.settings.defaultCourtCostAgorot / 100))
     setRepeat(false)
   }
 
@@ -62,6 +67,9 @@ export function NewSessionSheet({
       durationMin: config.defaultDuration,
       location: config.requiresLocation ? location || undefined : undefined,
       priceAgorot: Math.round(Number(price) * 100) || 0,
+      courtCostAgorot: config.requiresLocation
+        ? Math.round(Number(courtCost) * 100) || 0
+        : 0,
       status: 'pending',
       paid: false,
       fromPackage: false,
@@ -157,15 +165,48 @@ export function NewSessionSheet({
           </Field>
         ) : null}
 
-        <Field label="מחיר (₪)">
-          <input
-            type="number"
-            inputMode="numeric"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="ltr-nums w-full rounded-sm border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none focus:border-court"
-          />
-        </Field>
+        <div className={`grid gap-3 ${config.requiresLocation ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <Field label="מחיר ללקוח (₪)">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="ltr-nums w-full rounded-sm border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none focus:border-court"
+            />
+          </Field>
+          {config.requiresLocation ? (
+            <Field label="עלות מגרש (₪)">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={courtCost}
+                onChange={(e) => setCourtCost(e.target.value)}
+                className="ltr-nums w-full rounded-sm border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none focus:border-court"
+              />
+            </Field>
+          ) : null}
+        </div>
+        {config.requiresLocation ? (
+          <p className="-mt-3 text-xs font-semibold text-muted">
+            נשאר אחרי מגרש:{' '}
+            <span
+              className={`ltr-nums ${
+                Number(price || 0) >= Number(courtCost || 0)
+                  ? 'text-paid'
+                  : 'text-owed'
+              }`}
+            >
+              {formatSignedShekel(
+                Math.round(
+                  (Number(price || 0) - Number(courtCost || 0)) * 100,
+                ),
+              )}
+            </span>
+          </p>
+        ) : null}
 
         <label className="flex items-center justify-between rounded-sm border border-line bg-surface px-3 py-3">
           <span className="text-base font-medium text-ink">חוזר כל שבוע</span>

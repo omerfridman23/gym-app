@@ -100,6 +100,11 @@ export default function TodayPage() {
         onCancel={(id, reason) =>
           void actions.updateSession(id, { status: 'cancelled', cancelReason: reason })
         }
+        onAttendance={(id, attendance) =>
+          void actions.updateSession(id, { status: 'done', attendance })
+        }
+        onEdit={(id, patch) => actions.updateSession(id, patch)}
+        onDelete={(id, scope) => actions.deleteSession(id, scope)}
       />
 
       <NewSessionSheet

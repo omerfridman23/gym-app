@@ -18,7 +18,6 @@ import { AppHeader } from '@/components/app-header'
 import { useAuth } from '@/lib/auth-context'
 import { useData } from '@/lib/data'
 import { ApiError, type UpdateCoachInput } from '@/lib/api'
-import { formatShekel } from '@/lib/format'
 import type { CoachSettings } from '@/lib/mock-data'
 
 export default function SettingsPage() {
@@ -62,10 +61,57 @@ export default function SettingsPage() {
         {/* Money defaults */}
         <Section icon={<Wallet className="size-4" />} title="מחירים">
           <Field label="מחיר ברירת מחדל לאימון">
-            <div className="flex items-center gap-1 text-ink">
-              <span className="ltr-nums font-semibold">{formatShekel(s.defaultPriceAgorot)}</span>
+            <div className="flex items-center gap-1 text-ink" dir="ltr">
+              <span className="font-semibold">₪</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                key={s.defaultPriceAgorot}
+                defaultValue={s.defaultPriceAgorot / 100}
+                aria-label="מחיר ברירת מחדל בשקלים"
+                onBlur={(event) => {
+                  const shekels = Number(event.target.value)
+                  const next = Math.round(shekels * 100)
+                  if (
+                    Number.isFinite(shekels) &&
+                    shekels >= 0 &&
+                    next !== s.defaultPriceAgorot
+                  ) {
+                    save({ defaultPriceAgorot: next })
+                  }
+                }}
+                className="ltr-nums w-20 rounded-xl bg-surface-2 px-2 py-1.5 text-center font-semibold outline-none ring-1 ring-line/60 focus:ring-2 focus:ring-court"
+              />
             </div>
           </Field>
+          {vertical === 'padel' ? (
+            <Field label="עלות מגרש ברירת מחדל">
+              <div className="flex items-center gap-1 text-ink" dir="ltr">
+                <span className="font-semibold">₪</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  key={s.defaultCourtCostAgorot}
+                  defaultValue={s.defaultCourtCostAgorot / 100}
+                  aria-label="עלות מגרש ברירת מחדל בשקלים"
+                  onBlur={(event) => {
+                    const shekels = Number(event.target.value)
+                    const next = Math.round(shekels * 100)
+                    if (
+                      Number.isFinite(shekels) &&
+                      shekels >= 0 &&
+                      next !== s.defaultCourtCostAgorot
+                    ) {
+                      save({ defaultCourtCostAgorot: next })
+                    }
+                  }}
+                  className="ltr-nums w-20 rounded-xl bg-surface-2 px-2 py-1.5 text-center font-semibold outline-none ring-1 ring-line/60 focus:ring-2 focus:ring-court"
+                />
+              </div>
+            </Field>
+          ) : null}
         </Section>
 
         {/* Reminders */}

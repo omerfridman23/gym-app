@@ -38,6 +38,7 @@ type RepoMock = {
 function makeRepo(): RepoMock {
   return {
     countRecentOtpRequests: vi.fn().mockResolvedValue(0),
+    countOtpRequestsSince: vi.fn().mockResolvedValue(0),
     createOtp: vi.fn().mockResolvedValue({ id: 'otp-1' }),
     findActiveOtp: vi.fn().mockResolvedValue(null),
     recordFailedAttempt: vi.fn().mockResolvedValue(1),
@@ -72,6 +73,8 @@ describe('AuthService', () => {
       get: vi.fn((key: string) => {
         if (key === 'NODE_ENV') return nodeEnv;
         if (key === 'DEV_LOGIN_ENABLED') return devLoginEnabled;
+        if (key === 'OTP_MONTHLY_CAP_NIS') return undefined;
+        if (key === 'OTP_COST_NIS') return undefined;
         return undefined;
       }),
     };
@@ -161,6 +164,29 @@ describe('AuthService', () => {
       repo.countRecentOtpRequests.mockResolvedValue(2);
       await expect(service.requestOtp('0501234567')).resolves.toBeUndefined();
       expect(repo.createOtp).toHaveBeenCalled();
+    });
+
+    it('blocks the month when the next OTP would exceed 100₪', async () => {
+      // 1.2₪ × 84 = 100.8₪, so the 84th send is refused.
+      repo.countOtpRequestsSince.mockResolvedValue(83);
+
+      const error = await service
+        .requestOtp('0501234567')
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(HttpException);
+      expect((error as HttpException).getStatus()).toBe(
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+      expect((error as Error).message).toContain('תקרת');
+      expect(repo.createOtp).not.toHaveBeenCalled();
+      expect(sms.sendOtp).not.toHaveBeenCalled();
+    });
+
+    it('allows the last OTP that still fits under 100₪', async () => {
+      repo.countOtpRequestsSince.mockResolvedValue(82);
+      await expect(service.requestOtp('0501234567')).resolves.toBeUndefined();
+      expect(sms.sendOtp).toHaveBeenCalled();
     });
 
     it('throws 429 on the 4th request in the window and sends no SMS', async () => {

@@ -12,6 +12,7 @@ function coachRow(overrides: Record<string, unknown> = {}) {
     name: '',
     vertical: null,
     defaultPriceAgorot: 0,
+    defaultCourtCostAgorot: 0,
     reminderHoursBefore: 24,
     cancellationPolicy: '',
     templates: {},
@@ -98,6 +99,15 @@ describe('CoachesService.updateMe', () => {
       expect(dataSentToUpdate()).toEqual({ defaultPriceAgorot: 0 });
     });
 
+    it('stores the default court cost independently from the client price', async () => {
+      await service.updateMe('coach-1', {
+        defaultCourtCostAgorot: 7500,
+      });
+      expect(dataSentToUpdate()).toEqual({
+        defaultCourtCostAgorot: 7500,
+      });
+    });
+
     it('generates a booking link when enabling for the first time', async () => {
       await service.updateMe('coach-1', { bookingEnabled: true });
       expect(dataSentToUpdate()).toEqual({
@@ -121,6 +131,13 @@ describe('CoachesService.updateMe', () => {
     it('truncates a fractional price to whole agorot', async () => {
       await service.updateMe('coach-1', { defaultPriceAgorot: 18000.9 });
       expect(dataSentToUpdate().defaultPriceAgorot).toBe(18000);
+    });
+
+    it('floors a negative court cost to zero', async () => {
+      await service.updateMe('coach-1', {
+        defaultCourtCostAgorot: -100,
+      });
+      expect(dataSentToUpdate().defaultCourtCostAgorot).toBe(0);
     });
 
     it('raises a reminder window below 1 hour to 1', async () => {

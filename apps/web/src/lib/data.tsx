@@ -8,6 +8,7 @@ import {
   type ApiPayment,
   type ApiSession,
   type CoachProfile,
+  type UpdateClientInput,
   type UpdateCoachInput,
   type UpdateSessionInput,
 } from './api'
@@ -39,6 +40,7 @@ export const DEFAULT_TEMPLATES = {
 const EMPTY_SETTINGS: CoachSettings = {
   name: '',
   defaultPriceAgorot: 0,
+  defaultCourtCostAgorot: 0,
   reminderHoursBefore: 24,
   cancellationPolicy: '',
   templates: DEFAULT_TEMPLATES,
@@ -68,6 +70,7 @@ function toUiSession(s: ApiSession): Session {
   return {
     id: s.id,
     clientId: s.clientId,
+    seriesId: s.seriesId ?? undefined,
     confirmToken: s.confirmToken,
     typeId: s.typeId,
     date: toISODate(start),
@@ -75,6 +78,7 @@ function toUiSession(s: ApiSession): Session {
     durationMin: s.durationMin,
     location: s.location ?? undefined,
     priceAgorot: s.priceAgorot,
+    courtCostAgorot: s.courtCostAgorot,
     // A confirmed session whose time has passed counts as done (debt accrues).
     status: s.status === 'confirmed' && ended ? 'done' : s.status,
     paid: s.paid,
@@ -123,6 +127,7 @@ function toSettings(profile: CoachProfile): CoachSettings {
   return {
     name: profile.name,
     defaultPriceAgorot: profile.defaultPriceAgorot,
+    defaultCourtCostAgorot: profile.defaultCourtCostAgorot ?? 0,
     reminderHoursBefore: profile.reminderHoursBefore,
     cancellationPolicy: profile.cancellationPolicy,
     templates: {
@@ -199,6 +204,7 @@ export interface NewSessionInput {
   durationMin: number
   location?: string
   priceAgorot: number
+  courtCostAgorot?: number
 }
 
 export interface NewClientInput {
@@ -210,8 +216,20 @@ export interface NewClientInput {
 
 export interface DataActions {
   addClient: (input: NewClientInput) => Promise<void>
+  updateClient: (id: string, patch: UpdateClientInput) => Promise<void>
+  deleteClient: (id: string) => Promise<void>
+  sellPackage: (
+    clientId: string,
+    totalSessions: number,
+    purchasedAgorot: number,
+    method: PaymentMethod,
+  ) => Promise<void>
   addSession: (input: NewSessionInput, repeatWeekly: boolean) => Promise<void>
   updateSession: (id: string, patch: UpdateSessionInput) => Promise<void>
+  deleteSession: (
+    id: string,
+    scope?: 'single' | 'future',
+  ) => Promise<void>
   /** Record a payment and mark the given sessions as settled, in one transaction. */
   recordPayment: (
     clientId: string,
@@ -289,18 +307,74 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       durationMin: input.durationMin,
       location: input.location,
       priceAgorot: input.priceAgorot,
+      courtCostAgorot: input.courtCostAgorot,
       repeatWeekly,
     })
     setDs((prev) => ({ ...prev, sessions: [...prev.sessions, ...created.map(toUiSession)] }))
   }, [])
 
+  const updateClient = useCallback(async (id: string, patch: UpdateClientInput) => {
+    const updated = await dataApi.updateClient(id, patch)
+    setDs((prev) => ({
+      ...prev,
+      clients: prev.clients.map((client) =>
+        client.id === id ? toUiClient(updated, prev.packages) : client,
+      ),
+    }))
+  }, [])
+
+  const deleteClient = useCallback(
+    async (id: string) => {
+      await dataApi.deleteClient(id)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const sellPackage = useCallback(
+    async (
+      clientId: string,
+      totalSessions: number,
+      purchasedAgorot: number,
+      method: PaymentMethod,
+    ) => {
+      await dataApi.createPackage({
+        clientId,
+        totalSessions,
+        purchasedAgorot,
+        paymentMethod: method,
+      })
+      await refresh()
+    },
+    [refresh],
+  )
+
   const updateSession = useCallback(async (id: string, patch: UpdateSessionInput) => {
     const updated = await dataApi.updateSession(id, patch)
+    if (patch.scope === 'future') {
+      await refresh()
+      return
+    }
     setDs((prev) => ({
       ...prev,
       sessions: prev.sessions.map((s) => (s.id === id ? toUiSession(updated) : s)),
     }))
-  }, [])
+  }, [refresh])
+
+  const deleteSession = useCallback(
+    async (id: string, scope: 'single' | 'future' = 'single') => {
+      await dataApi.deleteSession(id, scope)
+      if (scope === 'future') {
+        await refresh()
+        return
+      }
+      setDs((prev) => ({
+        ...prev,
+        sessions: prev.sessions.filter((session) => session.id !== id),
+      }))
+    },
+    [refresh],
+  )
 
   const recordPayment = useCallback(
     async (
@@ -329,9 +403,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ds,
       ready,
-      actions: { addClient, addSession, updateSession, recordPayment, saveSettings, refresh },
+      actions: {
+        addClient,
+        updateClient,
+        deleteClient,
+        sellPackage,
+        addSession,
+        updateSession,
+        deleteSession,
+        recordPayment,
+        saveSettings,
+        refresh,
+      },
     }),
-    [ds, ready, addClient, addSession, updateSession, recordPayment, saveSettings, refresh],
+    [
+      ds,
+      ready,
+      addClient,
+      updateClient,
+      deleteClient,
+      sellPackage,
+      addSession,
+      updateSession,
+      deleteSession,
+      recordPayment,
+      saveSettings,
+      refresh,
+    ],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
