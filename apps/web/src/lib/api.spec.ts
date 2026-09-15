@@ -84,6 +84,26 @@ describe('API request transport', () => {
     expect(res.json).not.toHaveBeenCalled()
   })
 
+  it('surfaces the monthly OTP spend-cap message from a 429', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        response(429, {
+          message: 'הגעתם לתקרת שליחת הקודים החודשית, נסו שוב בחודש הבא',
+        }),
+      ),
+    )
+    const { ApiError, authApi } = await loadApi()
+
+    const error = await authApi.requestOtp('0501234567').catch((value: unknown) => value)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({
+      status: 429,
+      message: 'הגעתם לתקרת שליחת הקודים החודשית, נסו שוב בחודש הבא',
+    })
+  })
+
   it('uses a scalar server message in ApiError', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(400, { message: 'טלפון לא תקין' })))
     const { ApiError, authApi } = await loadApi()
